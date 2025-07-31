@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import components, predictions, app_data
+from routers import components, predictions, app_data
 
 app = FastAPI(
     title="FuelBlend AI Backend",
@@ -11,10 +11,7 @@ app = FastAPI(
 # --- CORS Configuration ---
 # This is crucial for allowing your React frontend (on localhost:3000)
 # to communicate with this backend (on localhost:8000).
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
+origins = ['*']
 
 app.add_middleware(
     CORSMiddleware,
