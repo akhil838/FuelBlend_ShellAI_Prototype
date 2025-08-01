@@ -1,0 +1,8 @@
+fastapi[all]
+uvicorn
+pymongo
+tabpfn
+tabpfn-extensions[all] @ git+https://github.com/PriorLabs/tabpfn-extensions.git@e5946dd
+optuna
+numpy==1.26.4
+scikit-learn==1.2.2
