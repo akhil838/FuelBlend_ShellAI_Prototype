@@ -13,82 +13,116 @@ import warnings
 import numpy as np
 from tqdm import tqdm, trange
 from huggingface_hub import snapshot_download
+import os
 warnings.filterwarnings('ignore')
-snapshot_download(repo_id='akhil838/FuelBlend_Trained_TabPFNmodels', local_dir='./weights')
+
+
+import os
+os.environ['TABPFN_ALLOW_CPU_LARGE_DATASET'] = '1'
+import pandas as pd
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import optuna
+from tabpfn import TabPFNRegressor
+import tabpfn, tabpfn_extensions
+from tqdm import tqdm, trange
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.metrics import mean_absolute_percentage_error, mean_absolute_error, r2_score
+from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from tabpfn_extensions.hpo import TunedTabPFNRegressor
+import warnings 
+warnings.filterwarnings('ignore')
+import numpy as np
+from pathlib import Path
+from tabpfn.model.loading import (
+    load_fitted_tabpfn_model,
+    save_fitted_tabpfn_model,
+)
+
 
 class TrainedTabPFN():
     def __init__(self):
+        print('Downloading trained TabPFN models from HuggingFace Hub')
+        # snapshot_download(repo_id='akhil838/FuelBlend_Trained_TabPFNmodels', local_dir='./model/weights', token = os.environ.get('HF_TOKEN') )
+        print('Saved to weights folder')
+        print(os.path.abspath('.'))
         self.models = {
-            "BlendProperty1":{#97.866 ### +
-                0:[TabPFNRegressor(device='cuda', random_state=42), ['Component5_Property8', 'Weighted_Component3_Property4']], #97.87
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold1_BlendProperty1_97.8290.tabpfn_fit', 'rb')), ['Component1_fraction']], #97.23
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold2_BlendProperty1_98.6112.tabpfn_fit', 'rb')), ['Weighted_Component4_Property7', 'Weighted_Component5_Property3', 'Weighted_Component2_Property10']], #98.40
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold3_BlendProperty1_98.9648.tabpfn_fit', 'rb')), ['Weighted_avg_prop9', 'Component1_Property4']], #97.58
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold4_BlendProperty1_98.8430.tabpfn_fit', 'rb')), ['Component1_fraction', 'Weighted_Component2_Property4']], #98.25
+            "BlendProperty1":{#97.866 ### + 
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty1.tabpfn_fit"), device="cuda"), ['Component5_Property8', 'Weighted_Component3_Property4']], #97.87
+                1:[(lambda f: pickle.load(f))(open('./model/weights/fold1_BlendProperty1_97.8290.tabpfn_fit', 'rb')), ['Component1_fraction']], #97.23
+                2:[(lambda f: pickle.load(f))(open('./model/weights/fold2_BlendProperty1_98.6112.tabpfn_fit', 'rb')), ['Weighted_Component4_Property7', 'Weighted_Component5_Property3', 'Weighted_Component2_Property10']], #98.40
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty1.tabpfn_fit"), device="cuda"), ['Weighted_avg_prop9', 'Component1_Property4']], #97.58
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty1.tabpfn_fit"), device="cuda"), ['Component1_fraction', 'Weighted_Component2_Property4']], #98.25
             },
             'BlendProperty2':{#97.96, ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold0_BlendProperty2_98.5744.tabpfn_fit', 'rb')), ['Component2_Property3']], #97.78
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold1_BlendProperty2_98.6586.tabpfn_fit', 'rb')), ['Component2_Property3', 'Component3_Property2']], #97.16
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold2_BlendProperty2_98.4561.tabpfn_fit', 'rb')), ['Weighted_Component5_Property2', 'Component3_Property5', 'Component2_Property10']], #97.89
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold3_BlendProperty2_98.7953.tabpfn_fit', 'rb')), ['Component2_Property3', 'Component3_Property3', 'Component4_Property2']], #98.449
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold4_BlendProperty2_99.1892.tabpfn_fit', 'rb')), ['Weighted_Component3_Property3', 'Weighted_Component5_Property8', 'Weighted_avg_prop1', 'Component2_Property9']], # 98.54
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty2.tabpfn_fit"), device="cuda"), ['Component2_Property3']], #97.78
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty2.tabpfn_fit"), device="cuda"), ['Component2_Property3', 'Component3_Property2']], #97.16
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty2.tabpfn_fit"), device="cuda"), ['Weighted_Component5_Property2', 'Component3_Property5', 'Component2_Property10']], #97.89
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty2.tabpfn_fit"), device="cuda"), ['Component2_Property3', 'Component3_Property3', 'Component4_Property2']], #98.449
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty2.tabpfn_fit"), device="cuda"), ['Weighted_Component3_Property3', 'Weighted_Component5_Property8', 'Weighted_avg_prop1', 'Component2_Property9']], # 98.54
             },
-            'BlendProperty3':{#89.668, ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold0_BlendProperty3_91.7905.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_Component5_Property4', 'Weighted_Component1_Property8', 'Component3_Property1', 'Weighted_Component2_Property9']], #88.85,
-                1:[TabPFNRegressor(device='cuda', random_state=42), ['Component2_Property9', 'Component1_Property5', 'Component2_Property8', 'Weighted_Component1_Property4']],  #94.53,
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold2_BlendProperty3_94.4592.tabpfn_fit', 'rb')), ['Weighted_avg_prop7', 'Weighted_Component2_Property7', 'Component3_Property9']],# 86.80,
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold3_BlendProperty3_88.8337.tabpfn_fit', 'rb')), ['Component4_fraction', 'Weighted_Component3_Property1', 'Component1_Property2']], #86.37,
-                4:[(lambda f: pickle.load(f))(open("/kaggle/input/finetuned-tabpfn/fold4_BlendProperty3_92.4793.tabpfn_fit", 'rb')), ['Component3_Property7', 'Weighted_Component3_Property6', 'Weighted_avg_prop7']], #91.79
+            'BlendProperty3':{#89.668, ### + 
+                0:[(lambda f: pickle.load(f))(open('./model/weights/fold0_BlendProperty3_91.7905.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_Component5_Property4', 'Weighted_Component1_Property8', 'Component3_Property1', 'Weighted_Component2_Property9']], #88.85,
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty3.tabpfn_fit"), device="cuda"), ['Component2_Property9', 'Component1_Property5', 'Component2_Property8', 'Weighted_Component1_Property4']],  #94.53,
+                2:[(lambda f: pickle.load(f))(open('./model/weights/fold2_BlendProperty3_94.4592.tabpfn_fit', 'rb')), ['Weighted_avg_prop7', 'Weighted_Component2_Property7', 'Component3_Property9']],# 86.80,
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty3.tabpfn_fit"), device="cuda"), ['Component4_fraction', 'Weighted_Component3_Property1', 'Component1_Property2']], #86.37,
+                4:[(lambda f: pickle.load(f))(open("./model/weights/fold4_BlendProperty3_92.4793.tabpfn_fit", 'rb')), ['Component3_Property7', 'Weighted_Component3_Property6', 'Weighted_avg_prop7']], #91.79
             },
             'BlendProperty4':{#97.98 ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold0_BlendProperty4_99.0478.tabpfn_fit', 'rb')), ['Component1_fraction']],  # 97.53,
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold1_BlendProperty4_98.3989.tabpfn_fit', 'rb')), ['Weighted_Component3_Property9', 'Weighted_Component2_Property1']], # 98.511 ,
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold2_BlendProperty4_99.0959.tabpfn_fit', 'rb')), ['Weighted_Component3_Property8', 'Component3_Property1', 'Component1_Property4']], # 97.805
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold3_BlendProperty4_98.3871.tabpfn_fit', 'rb')), ['Component3_fraction', 'Component4_Property4', 'Component1_Property2', 'Weighted_avg_prop9']], # 97.49
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold4_BlendProperty4_98.7612.tabpfn_fit', 'rb')), ['Component1_Property1', 'Component4_Property4', 'Weighted_avg_prop5', 'Weighted_avg_prop8']], # 98.59
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty4.tabpfn_fit"), device="cuda"), ['Component1_fraction']],  # 97.53,
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty4.tabpfn_fit"), device="cuda"), ['Weighted_Component3_Property9', 'Weighted_Component2_Property1']], # 98.511 ,
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty4.tabpfn_fit"), device="cuda"), ['Weighted_Component3_Property8', 'Component3_Property1', 'Component1_Property4']], # 97.805
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty4.tabpfn_fit"), device="cuda"), ['Component3_fraction', 'Component4_Property4', 'Component1_Property2', 'Weighted_avg_prop9']], # 97.49
+                4:[(lambda f: pickle.load(f))(open('./model/weights/fold4_BlendProperty4_98.7612.tabpfn_fit', 'rb')), ['Component1_Property1', 'Component4_Property4', 'Weighted_avg_prop5', 'Weighted_avg_prop8']], # 98.59
             },
             'BlendProperty5':{#99.07, ### +
-                0:[TabPFNRegressor(device='cuda', random_state=42), ['Weighted_Component1_Property5', 'Weighted_Component5_Property3']], #99.50,
-                1:[TabPFNRegressor(device='cuda', random_state=42), ['Component1_Property9']], # 99.01,
-                2:[TabPFNRegressor(device='cuda', random_state=42), ['Component5_Property3', 'Component2_Property8', 'Weighted_Component4_Property5']], #99.39,
-                3:[TabPFNRegressor(device='cuda', random_state=42), ['Weighted_Component3_Property5', 'Component1_fraction']], # 98.88,
-                4:[TabPFNRegressor(device='cuda', random_state=42), ['Component2_Property5', 'Weighted_avg_prop5', 'Weighted_Component3_Property5']], #98.55,
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty5.tabpfn_fit"), device="cuda"), ['Weighted_Component1_Property5', 'Weighted_Component5_Property3']], #99.50,
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty5.tabpfn_fit"), device="cuda"), ['Component1_Property9']], # 99.01,
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty5.tabpfn_fit"), device="cuda"), ['Component5_Property3', 'Component2_Property8', 'Weighted_Component4_Property5']], #99.39,
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty5.tabpfn_fit"), device="cuda"), ['Weighted_Component3_Property5', 'Component1_fraction']], # 98.88,
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty5.tabpfn_fit"), device="cuda"), ['Component2_Property5', 'Weighted_avg_prop5', 'Weighted_Component3_Property5']], #98.55,
             },
-            'BlendProperty6':{#98.6 ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold0_BlendProperty6_98.8867.tabpfn_fit', 'rb')), ['Weighted_Component3_Property3', 'Component1_fraction', 'Weighted_avg_prop8']], #97.84
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold1_BlendProperty6_98.3057.tabpfn_fit', 'rb')), ['Weighted_Component1_Property1', 'Weighted_avg_prop1', 'Component1_Property8']], #98.93
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold2_BlendProperty6_99.3169.tabpfn_fit', 'rb')), ['Weighted_Component4_Property5']], #98.33
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold3_BlendProperty6_99.0521.tabpfn_fit', 'rb')), ['Component4_Property9', 'Component4_Property10']], #98.95
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold4_BlendProperty6_99.1919.tabpfn_fit', 'rb')), ['Weighted_avg_prop2', 'Weighted_Component3_Property9']], #98.95
+            'BlendProperty6':{#98.6 ### + 
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty6.tabpfn_fit"), device="cuda"), ['Weighted_Component3_Property3', 'Component1_fraction', 'Weighted_avg_prop8']], #97.84
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty6.tabpfn_fit"), device="cuda"), ['Weighted_Component1_Property1', 'Weighted_avg_prop1', 'Component1_Property8']], #98.93
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty6.tabpfn_fit"), device="cuda"), ['Weighted_Component4_Property5']], #98.33
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty6.tabpfn_fit"), device="cuda"), ['Component4_Property9', 'Component4_Property10']], #98.95
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty6.tabpfn_fit"), device="cuda"), ['Weighted_avg_prop2', 'Weighted_Component3_Property9']], #98.95
             },
             'BlendProperty7':{#89.17, ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold0_BlendProperty7_89.9701.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_avg_prop7', 'Component3_Property7', 'Weighted_avg_prop8', 'Component5_Property10', 'Weighted_Component1_Property2']], #91.68,
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold1_BlendProperty7_92.2433.tabpfn_fit', 'rb')), ['Component2_fraction', 'Weighted_Component4_Property5', 'Weighted_Component3_Property3', 'Component2_Property8']], #89.05,
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold2_BlendProperty7_92.1363.tabpfn_fit', 'rb')), ['Component2_fraction', 'Weighted_avg_prop5', 'Weighted_Component3_Property8', 'Weighted_avg_prop7', 'Component2_Property2']], #84.63,
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold3_BlendProperty7_85.8353.tabpfn_fit', 'rb')), ['Component3_Property7', 'Component4_fraction']],  #90.504,
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold4_BlendProperty7_91.6077.tabpfn_fit', 'rb')), ['Component5_fraction', 'Weighted_Component5_Property10', 'Weighted_avg_prop3']] #89.97
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty7.tabpfn_fit"), device="cuda"), ['Component3_fraction', 'Weighted_avg_prop7', 'Component3_Property7', 'Weighted_avg_prop8', 'Component5_Property10', 'Weighted_Component1_Property2']], #91.68,
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty7.tabpfn_fit"), device="cuda"), ['Component2_fraction', 'Weighted_Component4_Property5', 'Weighted_Component3_Property3', 'Component2_Property8']], #89.05,
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty7.tabpfn_fit"), device="cuda"), ['Component2_fraction', 'Weighted_avg_prop5', 'Weighted_Component3_Property8', 'Weighted_avg_prop7', 'Component2_Property2']], #84.63,
+                3:[(lambda f: pickle.load(f))(open('./model/weights/fold3_BlendProperty7_85.8353.tabpfn_fit', 'rb')), ['Component3_Property7', 'Component4_fraction']],  #90.504,
+                4:[(lambda f: pickle.load(f))(open('./model/weights/fold4_BlendProperty7_91.6077.tabpfn_fit', 'rb')), ['Component5_fraction', 'Weighted_Component5_Property10', 'Weighted_avg_prop3']] #89.97
             },
             'BlendProperty8':{#91.612, ### +
-                0:[load_fitted_tabpfn_model(Path("/kaggle/input/finetuned-tabpfn/fold0_BlendProperty8_89.5647.tabpfn_fit"), device="cuda"), ['Weighted_Component5_Property7', 'Weighted_Component3_Property8', 'Weighted_avg_prop6', 'Weighted_Component2_Property9', 'Weighted_Component5_Property6']],# 88.76,
-                1:[load_fitted_tabpfn_model(Path("/kaggle/input/finetuned-tabpfn/fold1_BlendProperty8_94.5920.tabpfn_fit"), device="cuda"), ['Component1_fraction', 'Weighted_Component5_Property7']], #94.43,
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold2_BlendProperty8_93.2313.tabpfn_fit', 'rb')),  ['Weighted_Component5_Property6', 'Weighted_avg_prop9']],  #88.60
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold3_BlendProperty8_91.6545.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_avg_prop8', 'Weighted_Component5_Property8', 'Component5_Property8', 'Weighted_Component5_Property7', 'Component3_Property3']],  # 93.04
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold4_BlendProperty8_93.3383.tabpfn_fit', 'rb')),  ['Component3_fraction', 'Component3_Property6', 'Weighted_Component5_Property7']], #93.23,
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty8.tabpfn_fit"), device="cuda"), ['Weighted_Component5_Property7', 'Weighted_Component3_Property8', 'Weighted_avg_prop6', 'Weighted_Component2_Property9', 'Weighted_Component5_Property6']],# 88.76,
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty8.tabpfn_fit"), device="cuda"), ['Component1_fraction', 'Weighted_Component5_Property7']], #94.43,
+                2:[(lambda f: pickle.load(f))(open('./model/weights/fold2_BlendProperty8_93.2313.tabpfn_fit', 'rb')),  ['Weighted_Component5_Property6', 'Weighted_avg_prop9']],  #88.60
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty8.tabpfn_fit"), device="cuda"), ['Component3_fraction', 'Weighted_avg_prop8', 'Weighted_Component5_Property8', 'Component5_Property8', 'Weighted_Component5_Property7', 'Component3_Property3']],  # 93.04
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty8.tabpfn_fit"), device="cuda"),  ['Component3_fraction', 'Component3_Property6', 'Weighted_Component5_Property7']], #93.23,
             },
             'BlendProperty9':{#88.88, ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold0_BlendProperty9_83.7371.tabpfn_fit', 'rb')),['Weighted_avg_prop9', 'Component3_fraction']], #90.30 tabpf
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold1_BlendProperty9_91.2295.tabpfn_fit', 'rb')),['Weighted_avg_prop9', 'Weighted_Component2_Property2']], #87.25
-                2:[TabPFNRegressor(device='cuda', random_state=42),['Component2_fraction', 'Weighted_avg_prop6']], #92.14 tabpf
-                3:[TabPFNRegressor(device='cuda', random_state=42),['Weighted_Component4_Property6']], #90.99 tabpf
-                4:[(lambda f: pickle.load(f))(open('/kaggle/input/finetuned-tabpfn/fold4_BlendProperty9_90.3222.tabpfn_fit', 'rb')),['Weighted_avg_prop9']], #83.73
+                0:[load_fitted_tabpfn_model(Path("./model/weights/fold0_BlendProperty9.tabpfn_fit"), device="cuda"),['Weighted_avg_prop9', 'Component3_fraction']], #90.30 tabpf
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty9.tabpfn_fit"), device="cuda"),['Weighted_avg_prop9', 'Weighted_Component2_Property2']], #87.25
+                2:[load_fitted_tabpfn_model(Path("./model/weights/fold2_BlendProperty9.tabpfn_fit"), device="cuda"),['Component2_fraction', 'Weighted_avg_prop6']], #92.14 tabpf
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty9.tabpfn_fit"), device="cuda"),['Weighted_Component4_Property6']], #90.99 tabpf
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty9.tabpfn_fit"), device="cuda"),['Weighted_avg_prop9']], #83.73
             },
-            'BlendProperty10':{#97.72 ### +
-                0:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold0_BlendProperty10_99.4143.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_Component4_Property2', 'Weighted_Component5_Property9']], #98.42
-                1:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold1_BlendProperty10_98.4936.tabpfn_fit', 'rb')), ['Component1_fraction', 'Component3_Property1']], #95.92
-                2:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold2_BlendProperty10_97.8637.tabpfn_fit', 'rb')), ['Weighted_Component2_Property2']], #98.27
-                3:[(lambda f: pickle.load(f))(open('/kaggle/input/tabpf-tuned-1-2-4-6-10/fold3_BlendProperty10_98.5485.tabpfn_fit', 'rb')), ['Component1_fraction', 'Component2_Property1']], #97.93
-                4:[TabPFNRegressor(device='cuda', random_state=42), ['Weighted_Component4_Property10', 'Weighted_Component2_Property4']], #98.102
+
+            'BlendProperty10':{#97.72 ### + 
+                0:[(lambda f: pickle.load(f))(open('./model/weights/fold0_BlendProperty10_99.4143.tabpfn_fit', 'rb')), ['Component3_fraction', 'Weighted_Component4_Property2', 'Weighted_Component5_Property9']], #98.42
+                1:[load_fitted_tabpfn_model(Path("./model/weights/fold1_BlendProperty10.tabpfn_fit"), device="cuda"), ['Component1_fraction', 'Component3_Property1']], #95.92
+                2:[(lambda f: pickle.load(f))(open('./model/weights/fold2_BlendProperty10_97.8637.tabpfn_fit', 'rb')), ['Weighted_Component2_Property2']], #98.27
+                3:[load_fitted_tabpfn_model(Path("./model/weights/fold3_BlendProperty10.tabpfn_fit"), device="cuda"), ['Component1_fraction', 'Component2_Property1']], #97.93
+                4:[load_fitted_tabpfn_model(Path("./model/weights/fold4_BlendProperty10.tabpfn_fit"), device="cuda"), ['Weighted_Component4_Property10', 'Weighted_Component2_Property4']], #98.102
             }
+
         }
         self.folds = KFold(n_splits=5, shuffle=True, random_state=42)
         self.target_columns = ['BlendProperty1', 'BlendProperty2', 'BlendProperty3', 'BlendProperty4', 'BlendProperty5',
