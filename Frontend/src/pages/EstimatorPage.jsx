@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 import { NUM_PROPERTIES } from '../constants';
 
@@ -15,6 +15,37 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [jobId, setJobId] = useState(null);
+    const [progress, setProgress] = useState(0);
+    const [status, setStatus] = useState('idle'); // idle, pending, success
+
+    useEffect(() => {
+        if (status !== 'pending' || !jobId) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const statusRes = await apiClient(`/predict/status/${jobId}`, apiAddress);
+                setProgress(statusRes.progress);
+
+                if (statusRes.status === 'SUCCESS') {
+                    setResults(statusRes.result);
+                    setStatus('success');
+                    clearInterval(interval);
+                } else if (statusRes.status === 'FAILURE') {
+                    setError('The estimation task failed on the server.');
+                    setStatus('idle');
+                    clearInterval(interval);
+                }
+            } catch (err) {
+                setError('Failed to get estimation status.');
+                setStatus('idle');
+                clearInterval(interval);
+            }
+        }, 2000); // Poll every 2 seconds
+
+        return () => clearInterval(interval);
+    }, [jobId, status, apiAddress]);
 
     const handlePropertyChange = (index, value) => {
         const newProps = [...desiredProperties];
@@ -37,44 +68,37 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
     };
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setResults(null);
+        e.preventDefault();
+        setError('');
+        setResults(null);
+        setProgress(0);
 
-    if (desiredProperties.some(p => p === '')) {
-        setError('Please enter a value for all desired properties.');
-        return;
-    }
-    if (selectedComponents.length < 2) {
-        setError('Please select at least two components.');
-        return;
-    }
+        try {
+            if (desiredProperties.some(p => p === '')) throw new Error('Please enter a value for all desired properties.');
+            if (selectedComponents.length < 2) throw new Error('Please select at least two components.');
 
-    setLoading(true);
+            const componentsForApi = managedComponents
+                .filter(c => selectedComponents.includes(c.id))
+                .map(c => ({ name: c.name, fraction: 0, properties: c.properties.map(p => parseFloat(p)) }));
 
-    const componentsForApi = managedComponents
-        .filter(c => selectedComponents.includes(c.id))
-        .map(c => ({
-            name: c.name,
-            // --- FIX: Added dummy fraction as required by the backend ---
-            fraction: 0, 
-            properties: c.properties.map(p => parseFloat(p))
-        }));
+            const payload = { target_properties: desiredProperties.map(p => parseFloat(p)), components: componentsForApi };
 
-    const payload = {
-        target_properties: desiredProperties.map(p => parseFloat(p)),
-        components: componentsForApi
+            setStatus('pending');
+            const startRes = await apiClient('/predict/estimate_fractions', apiAddress, { body: payload });
+            setJobId(startRes.job_id);
+        } catch (err) {
+            setError(err.message);
+        }
     };
 
-    try {
-        const data = await apiClient('/estimate_fractions', apiAddress, { body: payload });
-        setResults(data);
-    } catch (err) {
-        setError(`Failed to estimate fractions: ${err.message}`);
-    } finally {
-        setLoading(false);
-    }
-};
+    const resetPrediction = () => {
+        setStatus('idle');
+        setJobId(null);
+        setProgress(0);
+        setResults(null);
+        setError('');
+    };
+
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -117,17 +141,38 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                              </div>
                         </div>
                         <div className="mt-6 pt-6 border-t dark:border-slate-700">
-                            <button type="submit" disabled={loading} className="w-full py-3 px-6 bg-yellow-500 text-white font-bold rounded-lg shadow-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-wait transition-colors">
-                                {loading ? 'Estimating...' : 'Estimate Fractions'}
+                            <button type="submit" disabled={status === 'pending'} className="w-full py-3 px-6 bg-yellow-500 text-white font-bold rounded-lg shadow-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-wait transition-colors">
+                                {status === 'pending' ? 'Estimating...' : 'Estimate Fractions'}
                             </button>
                         </div>
                     </form>
                 </div>
                 <div id="estimator-results-container">
-                    {!results && !loading && !error && <InitialMessage icon={<EstimatorIcon/>} title="Estimation results will appear here" text='Fill in the form and click "Estimate Fractions".' />}
-                    {loading && <LoadingSpinner />}
-                    {error && <ErrorMessage message={error} />}
-                    {results && <EstimatorResults results={results} />}
+                    {error && <ErrorMessage message={error}/>}
+                    {status === 'idle' && !error && (
+                        <InitialMessage
+                            icon={<EstimatorIcon />}
+                            title="Estimation results will appear here"
+                            text='Fill in the form and click "Estimate Fractions".'
+                        />
+                    )}
+                    
+                    {status === 'pending' && (
+                        <div className="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg text-center animate-fade-in-up h-full flex flex-col justify-center">
+                            <h2 className="text-2xl font-bold mb-4">Estimation in Progress</h2>
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 mb-4">
+                                <div className="bg-yellow-500 h-4 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                            </div>
+                            <p className="text-slate-500 dark:text-slate-400">{progress}% Complete</p>
+                            <button onClick={resetPrediction} className="mt-6 py-2 px-4 bg-slate-200 dark:bg-slate-600 rounded-lg font-semibold text-sm">Cancel</button>
+                        </div>
+                    )}
+                    {status === 'success' && results && (
+                         <div className="animate-fade-in-up">
+                            <EstimatorResults results={results} />
+                             <button onClick={resetPrediction} className="w-full mt-4 py-2 px-4 bg-slate-200 dark:bg-slate-700 rounded-lg font-semibold">Start New Estimation</button>
+                         </div>
+                    )}
                 </div>
             </div>
         </div>
