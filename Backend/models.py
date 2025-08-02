@@ -43,3 +43,4 @@ class HistoryLog(BaseModel):
     type: str
     timestamp: str
     data: dict
+    response: Optional[dict] = None

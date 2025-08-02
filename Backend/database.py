@@ -75,12 +75,13 @@ def get_history() -> List[Dict]:
     return [history_helper(h) for h in history_collection.find().sort("timestamp", -1)]
 
 
-def add_history_log(log_type: str, data: dict):
+def add_history_log(log_type: str, data: dict, response_data:dict):
     log_entry = {
         "_id": f"hist_{uuid.uuid4().hex}",
         "type": log_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "data": data
+        "data": data,
+        "response": response_data
     }
     history_collection.insert_one(log_entry)
 

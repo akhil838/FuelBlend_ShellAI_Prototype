@@ -6,7 +6,14 @@ const RefreshIcon = () => (
     </svg>
 );
 
+const ChevronDownIcon = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+);
+
 const HistoryPage = ({ history, onRefresh }) => {
+    const [expandedIds, setExpandedIds] = useState(new Set());
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleRefresh = async () => {
@@ -14,6 +21,18 @@ const HistoryPage = ({ history, onRefresh }) => {
         // The onRefresh function is async, so we can wait for it to finish
         await onRefresh();
         setIsRefreshing(false);
+    };
+
+    const toggleExpand = (id) => {
+        setExpandedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
     };
 
     return (
@@ -37,17 +56,58 @@ const HistoryPage = ({ history, onRefresh }) => {
             </div>
             <div className="mt-8 space-y-6">
                 {history && history.length > 0 ? (
-                    history.map((item, index) => (
-                        <div key={index} className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">{item.type === 'blender' ? 'Blend Calculation' : 'Fraction Estimation'}</h2>
-                                <span className="text-sm text-slate-500 dark:text-slate-400">{new Date(item.timestamp).toLocaleString()}</span>
+                    history.map((item) => {
+                        const isExpanded = expandedIds.has(item.id);
+                        return (
+                            <div key={item.id} className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-semibold text-yellow-600 dark:text-yellow-400 capitalize">
+                                        {item.type.replace('_', ' ')}
+                                    </h2>
+                                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                                        {new Date(item.timestamp).toLocaleString()}
+                                    </span>
+                                </div>
+                                
+                                <div className={`relative overflow-hidden transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[1000px]' : 'max-h-32'}`}>
+                                    <div className="flex flex-col md:flex-row md:gap-4">
+                                        {/* Left Column: Request */}
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Request:</h3>
+                                            <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-md text-xs overflow-x-auto">
+                                                {JSON.stringify(item.data, null, 2)}
+                                            </pre>
+                                        </div>
+
+                                        {/* --- FIX: Moved Response column out of the isExpanded check --- */}
+                                        {/* It will now render in the collapsed state and be truncated by the parent div */}
+                                        {item.response && (
+                                            <div className="flex-1 min-w-0 mt-4 md:mt-0">
+                                                <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Response:</h3>
+                                                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-md text-xs overflow-x-auto">
+                                                    {JSON.stringify(item.response, null, 2)}
+                                                </pre>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Gradient overlay when collapsed */}
+                                    {!isExpanded && (
+                                        <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-white dark:from-slate-800 to-transparent pointer-events-none" />
+                                    )}
+                                </div>
+                                
+                                {/* Toggle Button */}
+                                <button
+                                    onClick={() => toggleExpand(item.id)}
+                                    className="w-full mt-4 text-sm font-semibold text-yellow-600 dark:text-yellow-400 hover:underline flex items-center justify-center gap-1"
+                                >
+                                    <span>{isExpanded ? 'Show Less' : 'Show More'}</span>
+                                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                </button>
                             </div>
-                            <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-md text-xs overflow-x-auto">
-                                {JSON.stringify(item.data, null, 2)}
-                            </pre>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <div className="text-center bg-white dark:bg-slate-800 p-10 rounded-lg shadow-md">
                         <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-200">No History Found</h2>

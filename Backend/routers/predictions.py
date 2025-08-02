@@ -23,7 +23,7 @@ async def blend_properties_manual(request: models.BlendManualRequest):
     }
 
     # Add to history
-    database.add_history_log("blender", request.model_dump())
+    database.add_history_log("blender", request.model_dump(), dummy_results)
 
     return dummy_results
 
@@ -79,6 +79,6 @@ async def estimate_fractions(request: models.EstimateFractionsRequest):
     }
 
     # Add to history
-    database.add_history_log("estimator", request.model_dump())
+    database.add_history_log("estimator", request.model_dump(), dummy_results)
 
     return dummy_results
