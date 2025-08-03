@@ -37,6 +37,7 @@ from tabpfn_extensions.hpo import TunedTabPFNRegressor
 import warnings 
 warnings.filterwarnings('ignore')
 import numpy as np
+from config import settings
 from pathlib import Path
 from tabpfn.model.loading import (
     load_fitted_tabpfn_model,
@@ -47,7 +48,7 @@ from tabpfn.model.loading import (
 class TrainedTabPFN():
     def __init__(self):
         print('Downloading trained TabPFN models from HuggingFace Hub')
-        # snapshot_download(repo_id='akhil838/FuelBlend_Trained_TabPFNmodels', local_dir='./model/weights', token = os.environ.get('HF_TOKEN') )
+        snapshot_download(repo_id='akhil838/FuelBlend_Trained_models_v2', local_dir='./model/weights', token = settings.HF_TOKEN )
         print('Saved to weights folder')
         print(os.path.abspath('.'))
         self.models = {
@@ -127,6 +128,8 @@ class TrainedTabPFN():
         self.folds = KFold(n_splits=5, shuffle=True, random_state=42)
         self.target_columns = ['BlendProperty1', 'BlendProperty2', 'BlendProperty3', 'BlendProperty4', 'BlendProperty5',
                   'BlendProperty6', 'BlendProperty7', 'BlendProperty8', 'BlendProperty9', 'BlendProperty10']
+        self.input_columns = ['Component1_fraction','Component2_fraction','Component3_fraction','Component4_fraction','Component5_fraction','Component1_Property1','Component2_Property1','Component3_Property1','Component4_Property1','Component5_Property1','Component1_Property2','Component2_Property2','Component3_Property2','Component4_Property2','Component5_Property2','Component1_Property3','Component2_Property3','Component3_Property3','Component4_Property3','Component5_Property3','Component1_Property4','Component2_Property4','Component3_Property4','Component4_Property4','Component5_Property4','Component1_Property5','Component2_Property5','Component3_Property5','Component4_Property5','Component5_Property5','Component1_Property6','Component2_Property6','Component3_Property6','Component4_Property6','Component5_Property6','Component1_Property7','Component2_Property7','Component3_Property7','Component4_Property7','Component5_Property7','Component1_Property8','Component2_Property8','Component3_Property8','Component4_Property8','Component5_Property8','Component1_Property9','Component2_Property9','Component3_Property9','Component4_Property9','Component5_Property9','Component1_Property10','Component2_Property10','Component3_Property10','Component4_Property10','Component5_Property10']
+    
 
     def predict(self, X):
         X = self.preprocess(X)
@@ -134,12 +137,12 @@ class TrainedTabPFN():
         # Initialize a list to store predictions for each fold
         for fold_idx in range(5):
             fold_preds = []
-            for col in tqdm(y.columns):
+            for col in tqdm(self.target_columns):
                 model = self.models[col][fold_idx][0]
                 used_features = self.models[col][fold_idx][1]
 
                 # Drop irrelevant columns only once per column
-                X_test = X.drop(used_features + ['ID'], axis=1)
+                X_test = X.drop(used_features + (['ID'] if 'ID' in X.columns else []), axis=1)
 
                 # Predict in batch (all rows at once)
                 pred_col = model.predict(X_test)
@@ -152,7 +155,19 @@ class TrainedTabPFN():
 
         final_pred = np.array(final_pred)  # shape: (5, 500, 10)
         print(final_pred.shape)
+        return final_pred
 
+    def predict_single(self, X, fold_idx, col):
+        model = self.models[col][fold_idx][0]
+        used_features = self.models[col][fold_idx][1]
+
+        # Drop irrelevant columns only once per column
+        X_test = X.drop(used_features + (['ID'] if 'ID' in X.columns else []), axis=1)
+
+        # Predict in batch (all rows at once)
+        pred_col = model.predict(X_test)
+
+        return pred_col
     def preprocess(self, X):
         for col in ['Component1_fraction', 'Component2_fraction', 'Component3_fraction', 'Component4_fraction',
                     'Component5_fraction']:
@@ -175,12 +190,12 @@ class TrainedTabPFN():
         for fold_idx in range(5):
             fold_preds = []
 
-            for col in tqdm(y.columns):
+            for col in tqdm(self.target_columns):
                 model = self.models[col][fold_idx][0]
                 used_features = self.models[col][fold_idx][1]
 
                 # Drop irrelevant columns only once per column
-                X_test = X.drop(used_features + ['ID'], axis=1)
+                X_test = X.drop(used_features + (['ID'] if 'ID' in X.columns else []), axis=1)
 
                 # Predict in batch (all rows at once)
                 pred_col = model.predict(X_test)
@@ -228,6 +243,7 @@ class TrainedTabPFN():
             best_fractions = best_fractions / best_fractions.sum()
 
 
+        return best_fractions
 
     def weighted_mean(self, preds):
         print(preds.shape)

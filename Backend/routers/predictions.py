@@ -9,13 +9,16 @@ import io
 import database, models
 from celery_worker import run_single_prediction, run_batch_prediction, run_fraction_estimation
 from celery.result import AsyncResult
+import pandas as pd
+
 router = APIRouter(
     tags=["Predictions"],
 )
 
 UPLOADS_DIR = "uploads"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-
+input_columns = ['Component1_fraction','Component2_fraction','Component3_fraction','Component4_fraction','Component5_fraction','Component1_Property1','Component2_Property1','Component3_Property1','Component4_Property1','Component5_Property1','Component1_Property2','Component2_Property2','Component3_Property2','Component4_Property2','Component5_Property2','Component1_Property3','Component2_Property3','Component3_Property3','Component4_Property3','Component5_Property3','Component1_Property4','Component2_Property4','Component3_Property4','Component4_Property4','Component5_Property4','Component1_Property5','Component2_Property5','Component3_Property5','Component4_Property5','Component5_Property5','Component1_Property6','Component2_Property6','Component3_Property6','Component4_Property6','Component5_Property6','Component1_Property7','Component2_Property7','Component3_Property7','Component4_Property7','Component5_Property7','Component1_Property8','Component2_Property8','Component3_Property8','Component4_Property8','Component5_Property8','Component1_Property9','Component2_Property9','Component3_Property9','Component4_Property9','Component5_Property9','Component1_Property10','Component2_Property10','Component3_Property10','Component4_Property10','Component5_Property10']
+    
 @router.post("/predict/blend_manual")
 async def start_manual_blend(request: models.BlendManualRequest):
     """
@@ -35,6 +38,12 @@ async def start_batch_blend(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOADS_DIR, f"{uuid.uuid4().hex}_{file.filename}")
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
+    
+    input_df = pd.read_csv(file_path)
+
+    for col in input_columns:
+        if col not in input_df.columns:
+            raise HTTPException(status_code=400, detail=f"Wrong Format, make sure the column names are correct. ({col})")
 
     # Start the batch prediction task with the file path
     task = run_batch_prediction.delay(file_path, file.filename)
