@@ -10,6 +10,24 @@ FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 # Set the working directory inside the container
 WORKDIR /app
 
+
+# Define arguments for the model URL and directory to make it easier to update later
+ARG TABPFN_MODEL_URL="https://huggingface.co/Prior-Labs/TabPFN-v2-reg/resolve/main/tabpfn-v2-regressor.ckpt"
+# The default path TabPFN looks for
+ARG DEFAULT_MODELS_DIR="/root/.cache/tabpfn"
+ARG TABPFN_MODEL_FILENAME="tabpfn-v2-regressor.ckpt"
+
+# NOTE: We do not need to set ENV TABPFN_MODELS_DIR because we are using the default path.
+
+RUN apt-get update && \
+    apt-get install -y wget && \
+    # Create the directory structure
+    mkdir -p ${DEFAULT_MODELS_DIR} && \
+    echo "Downloading TabPFN base model to default path ${DEFAULT_MODELS_DIR}..." && \
+    wget -O "${DEFAULT_MODELS_DIR}/${TABPFN_MODEL_FILENAME}" ${TABPFN_MODEL_URL} && \
+    echo "Download complete." && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 # --- Install Dependencies ---
 # Update package lists and then install any OS-level dependencies.
 # The "-o Acquire::Check-Valid-Until=false" flag is added to fix time-sync errors.
