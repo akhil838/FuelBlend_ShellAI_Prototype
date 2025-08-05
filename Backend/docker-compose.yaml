@@ -1,0 +1,85 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # MongoDB Database Service
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  # Redis Message Broker Service
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  # FastAPI Backend Service
+  backend:
+    build: . # Build the image from the Dockerfile in the current directory
+    container_name: fastapi_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app # Mount current directory to /app for live reloading
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - app-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Celery Worker Service
+  worker:
+    build: .
+    container_name: celery_worker
+    # --- THIS COMMAND IS UPDATED ---
+    # It now points to the Celery app instance inside your 'celery_worker.py' file.
+    # We assume the Celery app object is named 'celery_app'. If it's named something else
+    # (e.g., 'celery'), you would change it to 'celery_worker.celery'.
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - app-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+# Define the network for services to communicate
+networks:
+  app-network:
+    driver: bridge
+
+# Define the volume for MongoDB data persistence
+volumes:
+  mongo-data:
+    driver: local

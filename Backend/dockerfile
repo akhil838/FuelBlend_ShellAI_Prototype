@@ -1,0 +1,38 @@
+# =========================================================================
+# Base Image
+#
+# We use the CUDA development image which includes the full CUDA Toolkit.
+# Using a specific tag like '12.1.1-devel-ubuntu22.04' is recommended for reproducibility.
+# This image's default Python version is 3.10.
+# =========================================================================
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# --- Install Dependencies ---
+# Update package lists and then install any OS-level dependencies.
+# The "-o Acquire::Check-Valid-Until=false" flag is added to fix time-sync errors.
+# We also add 'git' here, as it's required for pip to install packages from git repos.
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Install Python Packages ---
+# Copy the requirements file first to leverage Docker's layer caching.
+COPY requirements.txt .
+
+# Install the Python dependencies.
+# We upgrade pip first to ensure it can handle modern packaging standards (like git+https).
+RUN pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt
+
+# --- Copy Application Code ---
+# Copy the rest of your application's source code
+COPY . .
+
+# The CMD is not strictly necessary here as docker-compose will override it,
+# but it's good practice to have a default command.
+# Uvicorn was installed into the default Python 3 environment.
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
