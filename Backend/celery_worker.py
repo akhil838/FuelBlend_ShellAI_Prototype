@@ -19,6 +19,8 @@ from tabpfn.model.loading import (
 )
 import json
 import pickle
+from sklearn.metrics import mean_absolute_percentage_error
+import optuna
 
 tabPFN_model = None
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -73,6 +75,7 @@ def _load_and_predict_worker(args):
 
 @celery_app.task(bind=True)
 def run_single_prediction(self, request_data):
+    print(request_data)
     # This task now DELEGATES the work to the standalone script.
     
     # We pass the data to the script via standard input as a JSON string.
@@ -204,33 +207,99 @@ def run_batch_prediction(self, file_path: str, original_filename: str):
             os.remove(file_path)
 
 @celery_app.task(bind=True)
-def run_fraction_estimation(self, request_data):
-    """
-    Background task for fraction estimation.
-    """
-    global tabPFN_model
-    if tabPFN_model is None:
-        tabPFN_model = TrainedTabPFN()
-    total_steps = 10
-    for i in range(total_steps):
-        # Simulate work (e.g., 10 seconds total)
-        time.sleep(0.1)
-        progress = int(((i + 1) / total_steps) * 100)
-        self.update_state(state='PROGRESS', meta={'progress': progress})
+def run_fraction_estimation(self, request_data, n_trials=10):
+    # This task now DELEGATES the work to the standalone script.
     
-    # Generate final dummy result
-    num_components = len(request_data['components'])
-    fractions = [random.random() for _ in range(num_components)]
-    total = sum(fractions)
-    normalized_fractions = [f / total * 100 for f in fractions]
-    
-    dummy_results = {
+    # We pass the data to the script via standard input as a JSON string.
+    # We must wrap the request_data to avoid confusion with progress messages.
+    target_properties = request_data['target_properties']
+    components = request_data['components']
+    n_components = len(components)
+
+    # Command to execute the worker script.
+    # Ensure 'python' and 'predict_worker_script.py' are in your system's PATH
+    # or use absolute paths.
+    def objective(trial):
+        x = []
+        for i in range(n_components):
+            x.append(- np.log(trial.suggest_float(f"x_{i}", 0, 1)))
+
+        p = []
+        for i in range(n_components):
+            p.append(x[i] / sum(x))
+
+        for i in range(n_components):
+            trial.set_user_attr(f"p_{i}", p[i]*100)
+            components[i]['fraction'] = p[i]*100
+
+        
+        payload = json.dumps({"request_data": {'components':components}})
+        print(payload)
+
+        command = ['python3', 'predict_worker_script.py']
+        
+        final_result = None
+        
+        # Use Popen to have real-time communication for progress updates.
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True, # Work with text streams (encoding handled automatically)
+        )
+
+        # Write the payload to the script's stdin and close it.
+        process.stdin.write(payload)
+        process.stdin.close()
+        
+        # Read the script's output line-by-line to get progress updates.
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            
+            try:
+                # Each line from the script is a JSON object
+                message = json.loads(line.strip())
+                
+                if message.get("type") == "progress":
+                    self.update_state(state='PROGRESS', meta={'progress': (((trial.number+(message["value"]/100))/n_trials)*100)})
+                elif message.get("type") == "result":
+                    final_result = message["data"]
+                elif message.get("type") == "error":
+                    # Propagate the error from the subprocess
+                    raise Exception(f"Prediction script error: {message.get('message')}")
+            
+            except (json.JSONDecodeError, KeyError) as e:
+                # Handle malformed output from the script
+                print(f"Warning: Could not parse line from subprocess: {line.strip()}. Error: {e}")
+
+        # Wait for the process to terminate and get any errors
+        process.wait()
+        if process.returncode != 0:
+            stderr_output = process.stderr.read()
+            raise Exception(f"Prediction script failed with exit code {process.returncode}:\n{stderr_output}")
+            
+        if final_result is None:
+            raise Exception("Prediction script finished without producing a result.")
+        print(target_properties, final_result['blended_properties'])
+        print(trial.user_attrs)
+        return 100*mean_absolute_percentage_error(target_properties, final_result['blended_properties'])
+
+    study = optuna.create_study(directions = ['minimize'])
+    study.optimize(objective, n_trials=n_trials)
+
+    final_fractions = study.best_trial.user_attrs
+    print(final_fractions)
+    final_result = {
         "estimated_fractions": [
-            {"name": comp['name'], "fraction": frac}
-            for comp, frac in zip(request_data['components'], normalized_fractions)
+            {"name": comp['name'], "fraction": final_fractions[f'p_{idx}']}
+            for idx, comp in enumerate(request_data['components'])
         ],
         "mape_score": random.uniform(0.01, 0.2)
     }
-
-    database.add_history_log("estimator", request_data, dummy_results)
-    return {'progress': 100, 'result': dummy_results}
+    # Your database logging logic
+    database.add_history_log("blender", request_data, final_result)
+    
+    return {'progress': 100, 'result': final_result}

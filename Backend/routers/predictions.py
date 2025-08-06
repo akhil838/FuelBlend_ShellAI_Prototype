@@ -51,7 +51,7 @@ async def start_batch_blend(file: UploadFile = File(...)):
 
 @router.post("/predict/estimate_fractions")
 async def start_fraction_estimation(request: models.EstimateFractionsRequest):
-    task = run_fraction_estimation.delay(request.model_dump())
+    task = run_fraction_estimation.delay(request.model_dump(), 2)
     return JSONResponse({"job_id": task.id})
 
 @router.get("/predict/status/{job_id}")
