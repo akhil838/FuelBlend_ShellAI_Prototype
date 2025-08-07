@@ -15,10 +15,12 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
+    const [liveResults, setLiveResults] = useState(null);
     const [jobId, setJobId] = useState(null);
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState('idle'); // idle, pending, success
+    const [numTrials, setNumTrials] = useState(10); 
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status !== 'pending' || !jobId) return;
@@ -27,10 +29,15 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
             try {
                 const statusRes = await apiClient(`/predict/status/${jobId}`, apiAddress);
                 setProgress(statusRes.progress);
+                
+                if (statusRes.result) {
+                    setLiveResults(statusRes.result);
+                }
 
                 if (statusRes.status === 'SUCCESS') {
                     setResults(statusRes.result);
                     setStatus('success');
+                    setLiveResults(null);
                     clearInterval(interval);
                 } else if (statusRes.status === 'FAILURE') {
                     setError('The estimation task failed on the server.');
@@ -42,7 +49,7 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                 setStatus('idle');
                 clearInterval(interval);
             }
-        }, 2000); // Poll every 2 seconds
+        }, 2000);
 
         return () => clearInterval(interval);
     }, [jobId, status, apiAddress]);
@@ -59,11 +66,10 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
             if (isSelected) {
                 return prev.filter(id => id !== componentId);
             }
-            // --- MODIFIED: Add selection only if under the limit ---
             if (prev.length < 5) {
                 return [...prev, componentId];
             }
-            return prev; // Do nothing if limit is reached
+            return prev;
         });
     };
 
@@ -81,7 +87,7 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                 .filter(c => selectedComponents.includes(c.id))
                 .map(c => ({ name: c.name, fraction: 0, properties: c.properties.map(p => parseFloat(p)) }));
 
-            const payload = { target_properties: desiredProperties.map(p => parseFloat(p)), components: componentsForApi };
+            const payload = { target_properties: desiredProperties.map(p => parseFloat(p)), components: componentsForApi, n_trials: numTrials };
 
             setStatus('pending');
             const startRes = await apiClient('/predict/estimate_fractions', apiAddress, { body: payload });
@@ -96,9 +102,10 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
         setJobId(null);
         setProgress(0);
         setResults(null);
+        setLiveResults(null);
         setError('');
+        setSearchTerm('');
     };
-
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -118,28 +125,66 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                                 ))}
                             </div>
                         </div>
-                        <div className="mt-6 pt-6 border-t dark:border-slate-700">
-                             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Select Components to Use (min 2)</h3>
-                             <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-2">
-                                 {managedComponents.map(comp => {
-                                     const isChecked = selectedComponents.includes(comp.id);
-                                     // --- MODIFIED: Logic to disable checkboxes ---
-                                     const isDisabled = !isChecked && selectedComponents.length >= 5;
-                                     return (
-                                        <label key={comp.id} className={`flex items-center p-2 rounded-md transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={isChecked} 
-                                                disabled={isDisabled}
-                                                onChange={() => handleComponentSelection(comp.id)} 
-                                                className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-yellow-600 focus:ring-yellow-500 bg-slate-100 dark:bg-slate-900"
-                                            />
-                                            <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">{comp.name}</span>
-                                        </label>
-                                     );
-                                 })}
-                             </div>
+
+                        {/* --- MODIFIED: Removed gap from grid container --- */}
+                        <div className="mt-6 pt-6 border-t dark:border-slate-700 grid grid-cols-1 md:grid-cols-2">
+                            
+                            {/* --- MODIFIED: Added right padding to the first column --- */}
+                            <div className="md:pr-4">
+                                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Select Components (min 2)</h3>
+                                
+                                <div className="mt-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Search components..."
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-yellow-500 focus:border-yellow-500"
+                                    />
+                                </div>
+                                
+                                <div className="mt-2 space-y-2 max-h-40 overflow-y-auto pr-2">
+                                    {managedComponents
+                                        .filter(comp => comp.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                        .map(comp => {
+                                            const isChecked = selectedComponents.includes(comp.id);
+                                            const isDisabled = !isChecked && selectedComponents.length >= 5;
+                                            return (
+                                                <label key={comp.id} className={`flex items-center p-2 rounded-md transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isChecked} 
+                                                        disabled={isDisabled}
+                                                        onChange={() => handleComponentSelection(comp.id)} 
+                                                        className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-yellow-600 focus:ring-yellow-500 bg-slate-100 dark:bg-slate-900"
+                                                    />
+                                                    <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">{comp.name}</span>
+                                                </label>
+                                            );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* --- MODIFIED: Added left border and padding to the second column --- */}
+                            <div className="mt-6 md:mt-0 md:pl-4 md:border-l border-slate-300 dark:border-slate-600">
+                                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Configuration</h3>
+                                <div className="mt-4">
+                                    <label htmlFor="n_trials" className="block text-sm font-medium text-slate-600 dark:text-slate-400">Number of Trials</label>
+                                    <input 
+                                        type="number"
+                                        id="n_trials"
+                                        step="10"
+                                        min="10"
+                                        max="1000"
+                                        value={numTrials} 
+                                        onChange={e => setNumTrials(parseInt(e.target.value, 10))} 
+                                        className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200" 
+                                    />
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Higher values can improve accuracy but increase processing time.</p>
+                                </div>
+                            </div>
                         </div>
+
                         <div className="mt-6 pt-6 border-t dark:border-slate-700">
                             <button type="submit" disabled={status === 'pending'} className="w-full py-3 px-6 bg-yellow-500 text-white font-bold rounded-lg shadow-md hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-wait transition-colors">
                                 {status === 'pending' ? 'Estimating...' : 'Estimate Fractions'}
@@ -156,9 +201,14 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                             text='Fill in the form and click "Estimate Fractions".'
                         />
                     )}
-                    
                     {status === 'pending' && (
                         <div className="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg text-center animate-fade-in-up h-full flex flex-col justify-center">
+                            {liveResults && (
+                                <div className="mt-4 text-left animate-fade-in-up">
+                                    <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Best Results so far</h3>
+                                    <EstimatorResults results={liveResults} />
+                                </div>
+                            )}
                             <h2 className="text-2xl font-bold mb-4">Estimation in Progress</h2>
                             <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 mb-4">
                                 <div className="bg-yellow-500 h-4 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
@@ -169,7 +219,7 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                     )}
                     {status === 'success' && results && (
                          <div className="animate-fade-in-up">
-                            <EstimatorResults results={results} />
+                             <EstimatorResults results={results} />
                              <button onClick={resetPrediction} className="w-full mt-4 py-2 px-4 bg-slate-200 dark:bg-slate-700 rounded-lg font-semibold">Start New Estimation</button>
                          </div>
                     )}
