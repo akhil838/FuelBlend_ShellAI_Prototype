@@ -51,7 +51,7 @@ async def start_batch_blend(file: UploadFile = File(...)):
 
 @router.post("/predict/estimate_fractions")
 async def start_fraction_estimation(request: models.EstimateFractionsRequest):
-    task = run_fraction_estimation.delay(request.model_dump(), 2)
+    task = run_fraction_estimation.delay(request.model_dump())
     return JSONResponse({"job_id": task.id})
 
 @router.get("/predict/status/{job_id}")
@@ -60,20 +60,19 @@ async def get_task_status(job_id: str):
     Checks the status of a background job.
     """
     task_result = AsyncResult(job_id, app=run_single_prediction.app)
-    
+    response_data = {
+            "status": task_result.state,
+            "progress": 0
+        }
     if task_result.state == 'PROGRESS':
-        return JSONResponse({
-            "status": task_result.state,
-            "progress": task_result.info.get('progress', 0)
-        })
+        if isinstance(task_result.info, dict):
+            response_data.update(task_result.info)
+            
     elif task_result.state == 'SUCCESS':
-        return JSONResponse({
-            "status": task_result.state,
-            "progress": 100,
-            "result": task_result.result.get('result')
-        })
+        response_data['progress'] = 100
+        response_data['result'] = task_result.result.get('result')
     
-    return JSONResponse({"status": task_result.state, "progress": 0})
+    return JSONResponse(response_data)
 
 
 # @router.post("/blend_manual")

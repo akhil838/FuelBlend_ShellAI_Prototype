@@ -219,7 +219,7 @@ def run_fraction_estimation(self, request_data, n_trials=10):
     # Command to execute the worker script.
     # Ensure 'python' and 'predict_worker_script.py' are in your system's PATH
     # or use absolute paths.
-    def objective(trial):
+    def objective(trial, study=None):
         x = []
         for i in range(n_components):
             x.append(- np.log(trial.suggest_float(f"x_{i}", 0, 1)))
@@ -252,7 +252,14 @@ def run_fraction_estimation(self, request_data, n_trials=10):
         # Write the payload to the script's stdin and close it.
         process.stdin.write(payload)
         process.stdin.close()
-        
+        try:
+            best_value = study.best_value
+            best_params = study.best_trial.user_attrs
+        except:
+            best_value = None
+            best_params = None
+        print(f"Current best value: {best_value}, params: {best_params}")
+    
         # Read the script's output line-by-line to get progress updates.
         while True:
             line = process.stdout.readline()
@@ -264,7 +271,7 @@ def run_fraction_estimation(self, request_data, n_trials=10):
                 message = json.loads(line.strip())
                 
                 if message.get("type") == "progress":
-                    self.update_state(state='PROGRESS', meta={'progress': (((trial.number+(message["value"]/100))/n_trials)*100)})
+                    self.update_state(state='PROGRESS', meta={'progress': (((trial.number+(message["value"]/100))/n_trials)*100), 'result': {'mape_score':(best_value/100) if best_value else None, 'estimated_fractions': [{'name':components[idx]['name'],'fraction':best_params[f'p_{idx}'] if best_params else None}  for idx in range(n_components)]}})
                 elif message.get("type") == "result":
                     final_result = message["data"]
                 elif message.get("type") == "error":
@@ -288,16 +295,17 @@ def run_fraction_estimation(self, request_data, n_trials=10):
         return 100*mean_absolute_percentage_error(target_properties, final_result['blended_properties'])
 
     study = optuna.create_study(directions = ['minimize'])
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(lambda trial: objective(trial, study), n_trials=request_data['n_trials'])
 
     final_fractions = study.best_trial.user_attrs
+    final_mape = study.best_value
     print(final_fractions)
     final_result = {
         "estimated_fractions": [
             {"name": comp['name'], "fraction": final_fractions[f'p_{idx}']}
             for idx, comp in enumerate(request_data['components'])
         ],
-        "mape_score": random.uniform(0.01, 0.2)
+        "mape_score": final_mape/100
     }
     # Your database logging logic
     database.add_history_log("blender", request_data, final_result)

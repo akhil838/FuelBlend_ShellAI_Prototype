@@ -29,6 +29,7 @@ class BlendManualRequest(BaseModel):
 class EstimateFractionsRequest(BaseModel):
     target_properties: List[float]
     components: List[BlendComponent]
+    n_trials: int
 
 # --- App Data Models ---
 # FIX: Updated to expect a simple 'id' field.
