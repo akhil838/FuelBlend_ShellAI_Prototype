@@ -173,8 +173,8 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                                     <input 
                                         type="number"
                                         id="n_trials"
-                                        step="10"
-                                        min="10"
+                                        step="1"
+                                        min="2"
                                         max="1000"
                                         value={numTrials} 
                                         onChange={e => setNumTrials(parseInt(e.target.value, 10))} 
