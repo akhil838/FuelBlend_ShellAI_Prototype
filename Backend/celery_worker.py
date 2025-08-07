@@ -207,7 +207,7 @@ def run_batch_prediction(self, file_path: str, original_filename: str):
             os.remove(file_path)
 
 @celery_app.task(bind=True)
-def run_fraction_estimation(self, request_data, n_trials=10):
+def run_fraction_estimation(self, request_data):
     # This task now DELEGATES the work to the standalone script.
     
     # We pass the data to the script via standard input as a JSON string.
@@ -215,6 +215,7 @@ def run_fraction_estimation(self, request_data, n_trials=10):
     target_properties = request_data['target_properties']
     components = request_data['components']
     n_components = len(components)
+    n_trials = request_data['n_trials']
 
     # Command to execute the worker script.
     # Ensure 'python' and 'predict_worker_script.py' are in your system's PATH
@@ -295,7 +296,7 @@ def run_fraction_estimation(self, request_data, n_trials=10):
         return 100*mean_absolute_percentage_error(target_properties, final_result['blended_properties'])
 
     study = optuna.create_study(directions = ['minimize'])
-    study.optimize(lambda trial: objective(trial, study), n_trials=request_data['n_trials'])
+    study.optimize(lambda trial: objective(trial, study), n_trials=n_trials)
 
     final_fractions = study.best_trial.user_attrs
     final_mape = study.best_value
