@@ -9,7 +9,13 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import { EstimatorIcon } from '../components/icons/EstimatorIcon';
 
-const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
+const FractionEstimatorPage = ({ managedComponents = [], apiAddress }) => {
+    // Defensive: ensure we always work with an array to avoid runtime errors
+    const safeComponents = Array.isArray(managedComponents) ? managedComponents : [];
+    if (!Array.isArray(managedComponents) && process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('EstimatorPage expected managedComponents to be an array, received:', managedComponents);
+    }
     const [desiredProperties, setDesiredProperties] = useState(Array(NUM_PROPERTIES).fill(''));
     const [selectedComponents, setSelectedComponents] = useState([]);
     const [results, setResults] = useState(null);
@@ -83,7 +89,7 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
             if (desiredProperties.some(p => p === '')) throw new Error('Please enter a value for all desired properties.');
             if (selectedComponents.length < 2) throw new Error('Please select at least two components.');
 
-            const componentsForApi = managedComponents
+            const componentsForApi = safeComponents
                 .filter(c => selectedComponents.includes(c.id))
                 .map(c => ({ name: c.name, fraction: 0, properties: c.properties.map(p => parseFloat(p)) }));
 
@@ -144,7 +150,7 @@ const FractionEstimatorPage = ({ managedComponents, apiAddress }) => {
                                 </div>
                                 
                                 <div className="mt-2 space-y-2 max-h-40 overflow-y-auto pr-2">
-                                    {managedComponents
+                                    {safeComponents
                                         .filter(comp => comp.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                         .map(comp => {
                                             const isChecked = selectedComponents.includes(comp.id);

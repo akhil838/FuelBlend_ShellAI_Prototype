@@ -24,8 +24,27 @@ def component_helper(component) -> dict:
 
 
 # --- Component Functions ---
+def ensure_default_components():
+    """Seed the database with default components if none exist.
+    This runs on first access; safe to call multiple times (idempotent).
+    """
+    if component_collection.count_documents({}) == 0:
+        defaults = [
+            {"_id": "comp-ethanol", "name": "Ethanol", "properties": [0.789, 78.4, 1, 2, 3, 4, 5, 6, 7, 8]},
+            {"_id": "comp-water", "name": "Water", "properties": [1.0, 100.0, 9, 8, 7, 6, 5, 4, 3, 2]},
+            {"_id": "comp-methanol", "name": "Methanol", "properties": [0.792, 64.7, 2, 3, 4, 5, 6, 7, 8, 9]},
+        ]
+        # Insert many ensuring no duplicates if a race occurs (ordered=False ignores duplication errors per doc order)
+        try:
+            component_collection.insert_many(defaults, ordered=False)
+        except Exception:
+            # Ignore errors (e.g., duplicate key) in case of race condition
+            pass
+
+
 def get_all_components() -> List[Dict]:
-    # FIX: Manually format each document to replace '_id' with 'id'
+    # Ensure defaults are present if collection empty
+    ensure_default_components()
     return [component_helper(comp) for comp in component_collection.find()]
 
 

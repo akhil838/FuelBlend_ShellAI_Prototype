@@ -1,6 +1,16 @@
 import React from 'react';
 
-const BlenderInstanceCard = ({ instance, onRemove, onUpdate, onSelectComponent, onConfigure, managedComponents, canBeRemoved }) => (
+// Defensive: default managedComponents to empty array to avoid runtime errors if prop missing/mis-shaped
+const BlenderInstanceCard = ({ instance, onRemove, onUpdate, onSelectComponent, onConfigure, managedComponents = [], canBeRemoved }) => {
+    const safeComponents = Array.isArray(managedComponents) ? managedComponents : [];
+    if (!Array.isArray(managedComponents)) {
+        // Optional: in development, help diagnose incorrect data shape
+        if (process.env.NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.warn('BlenderInstanceCard expected managedComponents to be an array, received:', managedComponents);
+        }
+    }
+    return (
     <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg animate-fade-in-up relative">
         <button
             type="button"
@@ -16,7 +26,7 @@ const BlenderInstanceCard = ({ instance, onRemove, onUpdate, onSelectComponent, 
                 <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Component</label>
                 <select value={instance.componentId} onChange={(e) => onSelectComponent(instance.instanceId, e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
                     <option value="">Custom</option>
-                    {managedComponents.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {safeComponents.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
             </div>
             <div>
@@ -28,6 +38,7 @@ const BlenderInstanceCard = ({ instance, onRemove, onUpdate, onSelectComponent, 
             </button>
         </div>
     </div>
-);
+    );
+};
 
 export default BlenderInstanceCard;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { apiClient } from './api/client';
-import { defaultComponents, DEFAULT_API_ADDRESS } from './constants';
+import { DEFAULT_API_ADDRESS } from './constants';
 
 // Import Pages
 import BlenderPage from './pages/BlenderPage';
@@ -48,15 +48,28 @@ export default function App() {
             setError(null);
             try {
                 // Fetch components and history in parallel
-                const [componentsData, historyData] = await Promise.all([
-                    apiClient('/components', apiAddress).catch(() => defaultComponents),
+                const [componentsDataRaw, historyDataRaw] = await Promise.all([
+                    apiClient('/components', apiAddress).catch(() => []),
                     apiClient('/history', apiAddress).catch(() => [])
                 ]);
-                setManagedComponents(componentsData.length > 0 ? componentsData : defaultComponents);
+                // Normalize components in case backend returns object/different shape
+                const normalizeComponents = (data) => {
+                    if (Array.isArray(data)) return data;
+                    if (data && typeof data === 'object') return Object.values(data);
+                    return [];
+                };
+                const componentsData = normalizeComponents(componentsDataRaw);
+                const normalizeHistory = (data) => {
+                    if (Array.isArray(data)) return data;
+                    if (data && typeof data === 'object') return Object.values(data);
+                    return [];
+                };
+                const historyData = normalizeHistory(historyDataRaw);
+                setManagedComponents(componentsData);
                 setHistory(historyData);
             } catch (err) {
-                setError(`Failed to connect to API at ${apiAddress}. Using default data.`);
-                setManagedComponents(defaultComponents);
+                setError(`Failed to connect to API at ${apiAddress}.`);
+                setManagedComponents([]);
                 setHistory([]);
             } finally {
                 setIsLoading(false);
@@ -67,7 +80,7 @@ export default function App() {
             fetchInitialData();
         } else {
             setError("API Address is not set. Please configure it in Settings.");
-            setManagedComponents(defaultComponents);
+            setManagedComponents([]);
             setHistory([]);
             setIsLoading(false);
         }
@@ -94,9 +107,18 @@ export default function App() {
         try {
             const savedComponent = await apiClient(endpoint, apiAddress, { method, body: componentToSave });
             if (isEditing) {
-                setManagedComponents(managedComponents.map(c => (c.id === savedComponent.id ? savedComponent : c)));
+                setManagedComponents(prev => prev.map(c => (c.id === savedComponent.id ? savedComponent : c)));
             } else {
-                setManagedComponents([...managedComponents, savedComponent]);
+                // If prev is empty but we had shown defaults (because backend was empty before seeding), refetch to sync
+                setManagedComponents(prev => {
+                    if (prev.length === 0) {
+                        // Trigger a background refresh of components to pick up seeded defaults plus new component
+                        apiClient('/components', apiAddress).then(fresh => {
+                            if (Array.isArray(fresh) && fresh.length > 0) setManagedComponents(fresh);
+                        }).catch(() => {});
+                    }
+                    return [...prev, savedComponent];
+                });
             }
         } catch (err) {
             console.error("Failed to save component:", err);

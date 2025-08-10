@@ -12,7 +12,13 @@ const ChevronDownIcon = ({ className }) => (
     </svg>
 );
 
-const HistoryPage = ({ history, onRefresh }) => {
+const HistoryPage = ({ history = [], onRefresh }) => {
+    // Defensive: ensure we always work with an array
+    const safeHistory = Array.isArray(history) ? history : [];
+    if (!Array.isArray(history) && process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('HistoryPage expected history to be an array, received:', history);
+    }
     const [expandedIds, setExpandedIds] = useState(new Set());
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -55,8 +61,8 @@ const HistoryPage = ({ history, onRefresh }) => {
                 </button>
             </div>
             <div className="mt-8 space-y-6">
-                {history && history.length > 0 ? (
-                    history.map((item) => {
+                {safeHistory.length > 0 ? (
+                    safeHistory.map((item) => {
                         const isExpanded = expandedIds.has(item.id);
                         return (
                             <div key={item.id} className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
