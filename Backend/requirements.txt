@@ -1,9 +1,9 @@
+torch --index-url https://download.pytorch.org/whl/cu121
 fastapi[all]
 uvicorn
 pymongo
 tabpfn==2.1.0
 tabpfn-extensions[all] @ git+https://github.com/PriorLabs/tabpfn-extensions.git@e5946dd
-torch --index-url https://download.pytorch.org/whl/cu121
 optuna
 numpy==1.26.4
 scikit-learn==1.2.2
