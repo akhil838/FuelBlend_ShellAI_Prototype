@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import components, predictions, app_data
+import database
 
 app = FastAPI(
     title="FuelBlend AI Backend",
@@ -25,6 +26,11 @@ app.add_middleware(
 app.include_router(components.router)
 app.include_router(predictions.router)
 app.include_router(app_data.router)
+
+# --- Startup Event: seed default components once ---
+@app.on_event("startup")
+async def startup_seed():
+    database.seed_defaults_if_empty()
 
 # --- Health Check Endpoint ---
 @app.get("/health", tags=["Health"])
