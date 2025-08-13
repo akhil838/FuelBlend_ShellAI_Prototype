@@ -15,6 +15,7 @@ import AboutPage from './pages/AboutPage';
 import Sidebar from './components/layout/Sidebar';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ComponentModal from './components/common/ComponentModal';
+import TargetComponentModal from './components/common/TargetComponentModal';
 import DeleteConfirmModal from './components/common/DeleteConfirmModal';
 
 // Import styles
@@ -27,6 +28,7 @@ export default function App() {
 
     // State synced with backend
     const [managedComponents, setManagedComponents] = useState([]);
+    const [targetComponents, setTargetComponents] = useState([]);
     const [history, setHistory] = useState([]);
 
     // State persisted in local storage
@@ -39,6 +41,9 @@ export default function App() {
     const [isComponentModalOpen, setIsComponentModalOpen] = useState(false);
     const [editingComponent, setEditingComponent] = useState(null);
     const [deletingComponent, setDeletingComponent] = useState(null);
+    const [isTargetComponentModalOpen, setIsTargetComponentModalOpen] = useState(false);
+    const [editingTargetComponent, setEditingTargetComponent] = useState(null);
+    const [deletingTargetComponent, setDeletingTargetComponent] = useState(null);
     const [error, setError] = useState(null);
 
     // --- Data Fetching ---
@@ -48,9 +53,10 @@ export default function App() {
             setError(null);
             try {
                 // Fetch components and history in parallel
-                const [componentsDataRaw, historyDataRaw] = await Promise.all([
+                const [componentsDataRaw, historyDataRaw, targetComponentsDataRaw] = await Promise.all([
                     apiClient('/components', apiAddress).catch(() => []),
-                    apiClient('/history', apiAddress).catch(() => [])
+                    apiClient('/history', apiAddress).catch(() => []),
+                    apiClient('/target_components', apiAddress).catch(() => [])
                 ]);
                 // Normalize components in case backend returns object/different shape
                 const normalizeComponents = (data) => {
@@ -59,6 +65,7 @@ export default function App() {
                     return [];
                 };
                 const componentsData = normalizeComponents(componentsDataRaw);
+                const targetComponentsData = normalizeComponents(targetComponentsDataRaw);
                 const normalizeHistory = (data) => {
                     if (Array.isArray(data)) return data;
                     if (data && typeof data === 'object') return Object.values(data);
@@ -66,10 +73,12 @@ export default function App() {
                 };
                 const historyData = normalizeHistory(historyDataRaw);
                 setManagedComponents(componentsData);
+                setTargetComponents(targetComponentsData);
                 setHistory(historyData);
             } catch (err) {
                 setError(`Failed to connect to API at ${apiAddress}.`);
                 setManagedComponents([]);
+                setTargetComponents([]);
                 setHistory([]);
             } finally {
                 setIsLoading(false);
@@ -81,6 +90,7 @@ export default function App() {
         } else {
             setError("API Address is not set. Please configure it in Settings.");
             setManagedComponents([]);
+            setTargetComponents([]);
             setHistory([]);
             setIsLoading(false);
         }
@@ -129,6 +139,27 @@ export default function App() {
         }
     };
 
+    const handleSaveTargetComponent = async (componentToSave) => {
+        const isEditing = targetComponents.some(c => c.id === componentToSave.id);
+        const endpoint = isEditing ? `/target_components/${componentToSave.id}` : '/target_components';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        try {
+            const savedComponent = await apiClient(endpoint, apiAddress, { method, body: componentToSave });
+            if (isEditing) {
+                setTargetComponents(prev => prev.map(c => (c.id === savedComponent.id ? savedComponent : c)));
+            } else {
+                setTargetComponents(prev => [...prev, savedComponent]);
+            }
+        } catch (err) {
+            console.error("Failed to save target component:", err);
+            alert(`Error: ${err.message}`);
+        } finally {
+            setIsTargetComponentModalOpen(false);
+            setEditingTargetComponent(null);
+        }
+    };
+
     const handleDeleteConfirm = async () => {
         if (!deletingComponent) return;
         try {
@@ -142,14 +173,36 @@ export default function App() {
         }
     };
 
+    const handleDeleteTargetComponentConfirm = async () => {
+        if (!deletingTargetComponent) return;
+        try {
+            await apiClient(`/target_components/${deletingTargetComponent.id}`, apiAddress, { method: 'DELETE' });
+            setTargetComponents(targetComponents.filter(c => c.id !== deletingTargetComponent.id));
+        } catch (err) {
+            console.error("Failed to delete target component:", err);
+            alert(`Error: ${err.message}`);
+        } finally {
+            setDeletingTargetComponent(null);
+        }
+    };
+
     // --- UI Handlers ---
     const handleOpenComponentModal = (component = null) => {
         setEditingComponent(component);
         setIsComponentModalOpen(true);
     };
 
+    const handleOpenTargetComponentModal = (component = null) => {
+        setEditingTargetComponent(component);
+        setIsTargetComponentModalOpen(true);
+    };
+
     const handleOpenDeleteModal = (component) => {
         setDeletingComponent(component);
+    };
+
+    const handleOpenTargetDeleteModal = (component) => {
+        setDeletingTargetComponent(component);
     };
 
     useEffect(() => {
@@ -194,6 +247,10 @@ export default function App() {
                             onAddComponent={() => handleOpenComponentModal(null)}
                             onEditComponent={handleOpenComponentModal}
                             onDeleteComponent={handleOpenDeleteModal}
+                            targetComponents={targetComponents}
+                            onAddTargetComponent={() => handleOpenTargetComponentModal(null)}
+                            onEditTargetComponent={handleOpenTargetComponentModal}
+                            onDeleteTargetComponent={handleOpenTargetDeleteModal}
                         />;
             case 'history':
                 return <HistoryPage history={history} />;
@@ -220,29 +277,31 @@ export default function App() {
                 <main className="min-h-screen">
                     {error && <div className="m-4 p-4 text-center bg-red-100 text-red-700 border border-red-400 rounded-lg">{error}</div>}
                     
-                    {/* --- MODIFIED: Render all pages and use CSS to show/hide them --- */}
-                    {/* This prevents them from unmounting and losing state. */}
-                    <div className={currentPage === 'blender' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'blender' ? 'block' : 'none' }}>
                         <BlenderPage managedComponents={managedComponents} apiAddress={apiAddress} />
                     </div>
-                    <div className={currentPage === 'fraction-estimator' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'fraction-estimator' ? 'block' : 'none' }}>
                         <EstimatorPage managedComponents={managedComponents} apiAddress={apiAddress} />
                     </div>
-                    <div className={currentPage === 'component-manager' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'component-manager' ? 'block' : 'none' }}>
                         <ManagerPage 
                             managedComponents={managedComponents} 
                             onAddComponent={() => handleOpenComponentModal(null)}
                             onEditComponent={handleOpenComponentModal}
                             onDeleteComponent={handleOpenDeleteModal}
+                            targetComponents={targetComponents}
+                            onAddTargetComponent={() => handleOpenTargetComponentModal(null)}
+                            onEditTargetComponent={handleOpenTargetComponentModal}
+                            onDeleteTargetComponent={handleOpenTargetDeleteModal}
                         />
                     </div>
-                    <div className={currentPage === 'history' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'history' ? 'block' : 'none' }}>
                         <HistoryPage history={history} onRefresh={fetchHistory} />
                     </div>
-                    <div className={currentPage === 'settings' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'settings' ? 'block' : 'none' }}>
                         <SettingsPage theme={theme} setTheme={setTheme} apiAddress={apiAddress} setApiAddress={setApiAddress} />
                     </div>
-                    <div className={currentPage === 'about' ? '' : 'hidden'}>
+                    <div style={{ display: currentPage === 'about' ? 'block' : 'none' }}>
                         <AboutPage />
                     </div>
                 </main>
@@ -252,13 +311,26 @@ export default function App() {
             <ComponentModal
                 show={isComponentModalOpen}
                 onClose={() => setIsComponentModalOpen(false)}
-                component={editingComponent}
                 onSave={handleSaveComponent}
+                component={editingComponent}
             />
             <DeleteConfirmModal
-                show={!!deletingComponent}
+                isOpen={!!deletingComponent}
                 onClose={() => setDeletingComponent(null)}
                 onConfirm={handleDeleteConfirm}
+                componentName={deletingComponent?.name}
+            />
+            <TargetComponentModal
+                show={isTargetComponentModalOpen}
+                onClose={() => setIsTargetComponentModalOpen(false)}
+                onSave={handleSaveTargetComponent}
+                component={editingTargetComponent}
+            />
+            <DeleteConfirmModal
+                isOpen={!!deletingTargetComponent}
+                onClose={() => setDeletingTargetComponent(null)}
+                onConfirm={handleDeleteTargetComponentConfirm}
+                componentName={deletingTargetComponent?.name}
             />
         </div>
     );

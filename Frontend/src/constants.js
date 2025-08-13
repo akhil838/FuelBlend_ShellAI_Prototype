@@ -7,7 +7,15 @@ export const DEFAULT_API_ADDRESS = 'http://localhost:8000';
 export const createNewComponent = () => ({
     id: `comp-${Date.now()}`,
     name: '',
+    cost: '',
     properties: Array(NUM_PROPERTIES).fill('')
+});
+
+export const createNewTargetComponent = () => ({
+    id: `target-comp-${Date.now()}`,
+    name: '',
+    cost: '',
+    properties: Array(10).fill({ name: '', value: '', unit: '' })
 });
 
 export const createNewBlenderInstance = () => ({
