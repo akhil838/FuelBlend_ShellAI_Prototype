@@ -14,13 +14,12 @@ const BlenderResultsTable = ({ results }) => {
     const paginatedResults = results.slice(startIndex, endIndex);
 
     const exportToCsv = () => {
-        const headers = ["Blend #", ...results[0].blended_properties.map((_, i) => `Prop ${i + 1}`), "Confidence"];
+        const headers = ["Blend #", ...results[0].blended_properties.map((_, i) => `Prop ${i + 1}`)];
         const csvRows = [
             headers.join(','),
             ...results.map((result, index) => [
                 index + 1,
-                ...result.blended_properties,
-                `${(result.confidence_score * 100).toFixed(1)}%`
+                ...result.blended_properties
             ].join(','))
         ];
 
@@ -68,7 +67,6 @@ const BlenderResultsTable = ({ results }) => {
                             {results[0] && results[0].blended_properties.map((_, i) => (
                                 <th key={i} scope="col" className="px-4 py-3">Prop {i + 1}</th>
                             ))}
-                            <th scope="col" className="px-4 py-3">Confidence</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -78,7 +76,6 @@ const BlenderResultsTable = ({ results }) => {
                                 {result.blended_properties.map((prop, i) => (
                                     <td key={i} className="px-4 py-4">{prop.toFixed(4)}</td>
                                 ))}
-                                <td className="px-4 py-4 text-green-600 dark:text-green-400 font-bold">{(result.confidence_score * 100).toFixed(1)}%</td>
                             </tr>
                         ))}
                     </tbody>

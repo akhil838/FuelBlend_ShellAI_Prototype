@@ -298,7 +298,7 @@ export default function App() {
                     {error && <div className="m-4 p-4 text-center bg-red-100 text-red-700 border border-red-400 rounded-lg">{error}</div>}
                     
                     <div style={{ display: currentPage === 'blender' ? 'block' : 'none' }}>
-                        <BlenderPage managedComponents={managedComponents} apiAddress={apiAddress} />
+                        <BlenderPage managedComponents={managedComponents} apiAddress={apiAddress} targetComponents={targetComponents} />
                     </div>
                     <div style={{ display: currentPage === 'fraction-estimator' ? 'block' : 'none' }}>
                         <EstimatorPage managedComponents={managedComponents} apiAddress={apiAddress} targetComponents={targetComponents} />

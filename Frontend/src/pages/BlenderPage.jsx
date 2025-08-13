@@ -14,8 +14,9 @@ import InitialMessage from '../components/common/InitialMessage';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import BlenderIcon from '../components/icons/BlenderIcon.jsx';
+import RadarPlot from '../components/blender/RadarPlot';
 
-const BlenderPage = ({ managedComponents, apiAddress }) => {
+const BlenderPage = ({ managedComponents, apiAddress, targetComponents = [] }) => {
     const MIN_COMPONENTS = 2;
 
     // Correctly initialize state with 2 unique components.
@@ -32,6 +33,9 @@ const BlenderPage = ({ managedComponents, apiAddress }) => {
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState('idle'); // idle, pending, success
     const [results, setResults] = useState(null);
+    const [selectedBatchIndex, setSelectedBatchIndex] = useState(0);
+    const [selectedBatchRowInput, setSelectedBatchRowInput] = useState('1');
+    const [selectedTargetId, setSelectedTargetId] = useState(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -56,6 +60,14 @@ const BlenderPage = ({ managedComponents, apiAddress }) => {
 
         return () => clearInterval(interval); // Cleanup on component unmount
     }, [jobId, status, apiAddress]);
+
+    // Reset selected batch row when new results arrive
+    useEffect(() => {
+        if (Array.isArray(results)) {
+            setSelectedBatchIndex(0);
+            setSelectedBatchRowInput('1');
+        }
+    }, [results]);
 
 
     const addInstance = () => {
@@ -221,11 +233,91 @@ const BlenderPage = ({ managedComponents, apiAddress }) => {
                     </div>
                 )}
                 
-                {status === 'success' && results && (
-                    <div className="animate-fade-in-up">
-                        {Array.isArray(results) ? <BlenderResultsTable results={results} /> : <BlenderResults results={results} />}
-                    </div>
-                )}
+                                                {status === 'success' && results && (
+                                                        <div className="animate-fade-in-up grid grid-cols-1 xl:grid-cols-3 gap-4">
+                                                                <div className="xl:col-span-2">
+                                                                        {Array.isArray(results) ? <BlenderResultsTable results={results} /> : <BlenderResults results={results} />}
+                                                                </div>
+                                                            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg self-start">
+                                                                        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Radar Similarity</h3>
+                                                                        <div className="mb-3">
+                                                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Target Component</label>
+                                                                <select
+                                                                    value={selectedTargetId || ''}
+                                                                    onChange={e => setSelectedTargetId(e.target.value || null)}
+                                                                    className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200"
+                                                                >
+                                                                    <option value="">Select target...</option>
+                                                                    {Array.isArray(targetComponents) && targetComponents.map(tc => (
+                                                                        <option key={tc.id} value={tc.id}>{tc.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                        </div>
+                                                        {Array.isArray(results) && results.length > 0 && (
+                                                            <div className="mb-3">
+                                                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Row #</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={results.length}
+                                                                    value={selectedBatchRowInput}
+                                                                    onChange={e => {
+                                                                        const raw = e.target.value;
+                                                                        setSelectedBatchRowInput(raw);
+                                                                        const val = parseInt(raw, 10);
+                                                                        if (Number.isNaN(val)) { setSelectedBatchIndex(null); return; }
+                                                                        if (val < 1 || val > results.length) { setSelectedBatchIndex(null); return; }
+                                                                        setSelectedBatchIndex(val - 1);
+                                                                    }}
+                                                                    className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200"
+                                                                />
+                                                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Enter a number between 1 and {results.length}.</p>
+                                                            </div>
+                                                        )}
+                                                        {(() => {
+                                                            const isBatch = Array.isArray(results);
+                                                            const selected = Array.isArray(targetComponents) ? targetComponents.find(t => t.id === selectedTargetId) : null;
+                                                            const blended = isBatch
+                                                                ? (Number.isInteger(selectedBatchIndex) && selectedBatchIndex >= 0 && selectedBatchIndex < results.length
+                                                                    ? results[selectedBatchIndex]?.blended_properties
+                                                                    : null)
+                                                                : results?.blended_properties;
+                                                            const N = Array.isArray(blended) ? blended.length : (Array.isArray(results) && results.length > 0 && Array.isArray(results[0]?.blended_properties) ? results[0].blended_properties.length : 0);
+                                                            const labels = Array.from({ length: N }, (_, i) => `P${i+1}`);
+                                                            if (!selected || !Array.isArray(blended) || !Array.isArray(selected.properties) || selected.properties.length < N) {
+                                                                return (
+                                                                    <div className="flex flex-col items-center">
+                                                                        <RadarPlot values={[]} labels={labels} axesCount={N} size={340} hideData />
+                                                                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{!selected ? 'Select a target to view radar plot.' : 'Enter a valid row number to view radar plot.'}</p>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            // Compute MAPE per property and normalize to [0,1] where 1 = perfect (on border), 0 = center
+                                                            const mape = blended.map((pred, i) => {
+                                                                const target = selected.properties[i];
+                                                                const denom = Math.abs(target) > 1e-12 ? Math.abs(target) : 1e-12; // avoid div-by-zero
+                                                                return Math.abs((pred - target) / denom);
+                                                            });
+
+                                                            // Normalization strategy: value = 1 / (1 + mape) keeps in (0,1], where mape=0 -> 1 (border), large -> ~0
+                                                            const values01 = mape.map(m => 1 / (1 + m));
+                                                                            const overallMape = mape.reduce((a, b) => a + b, 0) / mape.length;
+
+                                                            return (
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <div className="flex items-center justify-between w-full mb-2">
+                                                                                        <span className="text-sm text-slate-600 dark:text-slate-300">Overall MAPE</span>
+                                                                                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{(overallMape * 100).toFixed(2)}%</span>
+                                                                                    </div>
+                                                                                    <RadarPlot values={values01} labels={labels} axesCount={N} size={340} />
+                                                                                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Closer to border = better match (lower MAPE)</p>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                </div>
+                                        </div>
+                                )}
             </div>
             
             <ConfigurePropertiesModal show={!!modalInstance} onClose={() => setModalInstance(null)} instance={modalInstance} onSave={(properties) => { if(modalInstance) updateInstance(modalInstance.instanceId, { properties }); setModalInstance(null); }} />
