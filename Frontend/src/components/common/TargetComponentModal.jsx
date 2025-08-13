@@ -3,7 +3,7 @@ import Modal from './Modal';
 import { NUM_PROPERTIES } from '../../constants';
 
 const TargetComponentModal = ({ show, onClose, component, onSave }) => {
-    const emptyState = { name: '', cost: '', properties: Array(NUM_PROPERTIES).fill('') };
+    const emptyState = { id: '', name: '', cost: '', properties: Array(NUM_PROPERTIES).fill('') };
     const [current, setCurrent] = useState(emptyState);
 
     useEffect(() => {
@@ -25,6 +25,7 @@ const TargetComponentModal = ({ show, onClose, component, onSave }) => {
             normalizedProps = normalizedProps.slice(0, NUM_PROPERTIES);
         }
         setCurrent({
+            id: component.id || '',
             name: component.name || '',
             cost: component.cost ?? '',
             properties: normalizedProps,

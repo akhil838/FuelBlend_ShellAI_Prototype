@@ -3,7 +3,11 @@ from typing import List, Dict
 import uuid
 from datetime import datetime, timezone
 from config import settings
-from models import Component, ComponentCreate, ComponentUpdate, SettingsDB, HistoryLog
+from models import (
+    Component, ComponentCreate, ComponentUpdate,
+    TargetComponent, TargetComponentCreate, TargetComponentUpdate,
+    SettingsDB, HistoryLog
+)
 
 # --- Database Connection ---
 client = MongoClient(settings.MONGO_URI)
@@ -11,6 +15,7 @@ db = client[settings.DB_NAME]
 
 # --- Collections ---
 component_collection = db.get_collection("components")
+target_component_collection = db.get_collection("target_components")
 history_collection = db.get_collection("history")
 settings_collection = db.get_collection("settings")
 
@@ -19,8 +24,17 @@ settings_collection = db.get_collection("settings")
 def component_helper(component) -> dict:
     if component:
         component['id'] = str(component['_id'])
+        # Backward compatibility: ensure cost exists
+        if 'cost' not in component:
+            component['cost'] = 0.0
         del component['_id']
     return component
+
+def target_component_helper(doc) -> dict:
+    if doc:
+        doc['id'] = str(doc['_id'])
+        del doc['_id']
+    return doc
 
 
 # --- Component Functions ---
@@ -28,12 +42,20 @@ def seed_defaults_if_empty():
     """Seed the database with default components only once (at startup)."""
     if component_collection.estimated_document_count() == 0:
         defaults = [
-            {"_id": "comp-ethanol", "name": "Ethanol", "properties": [0.789, 78.4, 1, 2, 3, 4, 5, 6, 7, 8]},
-            {"_id": "comp-water", "name": "Water", "properties": [1.0, 100.0, 9, 8, 7, 6, 5, 4, 3, 2]},
-            {"_id": "comp-methanol", "name": "Methanol", "properties": [0.792, 64.7, 2, 3, 4, 5, 6, 7, 8, 9]},
+            {"_id": "comp-ethanol", "name": "Ethanol", "cost": 0.0, "properties": [0.789, 78.4, 1, 2, 3, 4, 5, 6, 7, 8]},
+            {"_id": "comp-water", "name": "Water", "cost": 0.0, "properties": [1.0, 100.0, 9, 8, 7, 6, 5, 4, 3, 2]},
+            {"_id": "comp-methanol", "name": "Methanol", "cost": 0.0, "properties": [0.792, 64.7, 2, 3, 4, 5, 6, 7, 8, 9]},
         ]
         try:
             component_collection.insert_many(defaults, ordered=True)
+        except Exception:
+            pass
+
+    # Seed a default target component if empty
+    if target_component_collection.estimated_document_count() == 0:
+        default_target = [{"_id": "target-default", "name": "Default Target", "cost": 0.0, "properties": [0,0,0,0,0,0,0,0,0,0]}]
+        try:
+            target_component_collection.insert_many(default_target, ordered=True)
         except Exception:
             pass
 
@@ -65,6 +87,36 @@ def update_component_by_id(component_id: str, component_update: ComponentUpdate)
 
 def delete_component_by_id(component_id: str) -> bool:
     result = component_collection.delete_one({"_id": component_id})
+    return result.deleted_count > 0
+
+
+# --- Target Component Functions ---
+def get_all_target_components() -> List[Dict]:
+    return [target_component_helper(tc) for tc in target_component_collection.find()]
+
+
+def add_target_component(component: TargetComponentCreate) -> Dict:
+    comp_dict = component.model_dump()
+    comp_dict["_id"] = component.id
+    target_component_collection.insert_one(comp_dict)
+    return target_component_helper(comp_dict)
+
+
+def update_target_component_by_id(component_id: str, update: TargetComponentUpdate) -> Dict:
+    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_data:
+        return target_component_helper(target_component_collection.find_one({"_id": component_id}))
+
+    result = target_component_collection.find_one_and_update(
+        {"_id": component_id},
+        {"$set": update_data},
+        return_document=True
+    )
+    return target_component_helper(result)
+
+
+def delete_target_component_by_id(component_id: str) -> bool:
+    result = target_component_collection.delete_one({"_id": component_id})
     return result.deleted_count > 0
 
 

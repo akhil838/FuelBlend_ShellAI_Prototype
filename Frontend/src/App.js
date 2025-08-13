@@ -144,8 +144,28 @@ export default function App() {
         const endpoint = isEditing ? `/target_components/${componentToSave.id}` : '/target_components';
         const method = isEditing ? 'PUT' : 'POST';
 
+        // Build payload matching backend models
+        const payload = isEditing
+            ? {
+                // Update model: do not send id
+                name: componentToSave.name,
+                cost: parseFloat(componentToSave.cost),
+                properties: Array.isArray(componentToSave.properties)
+                    ? componentToSave.properties.map(v => parseFloat(v))
+                    : [],
+            }
+            : {
+                // Create model: id is required
+                id: componentToSave.id || `target-${Date.now()}`,
+                name: componentToSave.name,
+                cost: parseFloat(componentToSave.cost),
+                properties: Array.isArray(componentToSave.properties)
+                    ? componentToSave.properties.map(v => parseFloat(v))
+                    : [],
+            };
+
         try {
-            const savedComponent = await apiClient(endpoint, apiAddress, { method, body: componentToSave });
+            const savedComponent = await apiClient(endpoint, apiAddress, { method, body: payload });
             if (isEditing) {
                 setTargetComponents(prev => prev.map(c => (c.id === savedComponent.id ? savedComponent : c)));
             } else {
@@ -235,7 +255,7 @@ export default function App() {
     const mainContentPadding = isSidebarExpanded ? 'pl-72' : 'pl-28';
     
     const renderPage = () => {
-        const pageProps = { managedComponents, apiAddress };
+    const pageProps = { managedComponents, apiAddress, targetComponents };
         switch (currentPage) {
             case 'blender':
                 return <BlenderPage {...pageProps} />;
@@ -281,7 +301,7 @@ export default function App() {
                         <BlenderPage managedComponents={managedComponents} apiAddress={apiAddress} />
                     </div>
                     <div style={{ display: currentPage === 'fraction-estimator' ? 'block' : 'none' }}>
-                        <EstimatorPage managedComponents={managedComponents} apiAddress={apiAddress} />
+                        <EstimatorPage managedComponents={managedComponents} apiAddress={apiAddress} targetComponents={targetComponents} />
                     </div>
                     <div style={{ display: currentPage === 'component-manager' ? 'block' : 'none' }}>
                         <ManagerPage 
@@ -315,7 +335,7 @@ export default function App() {
                 component={editingComponent}
             />
             <DeleteConfirmModal
-                isOpen={!!deletingComponent}
+                show={!!deletingComponent}
                 onClose={() => setDeletingComponent(null)}
                 onConfirm={handleDeleteConfirm}
                 componentName={deletingComponent?.name}
@@ -327,7 +347,7 @@ export default function App() {
                 component={editingTargetComponent}
             />
             <DeleteConfirmModal
-                isOpen={!!deletingTargetComponent}
+                show={!!deletingTargetComponent}
                 onClose={() => setDeletingTargetComponent(null)}
                 onConfirm={handleDeleteTargetComponentConfirm}
                 componentName={deletingTargetComponent?.name}

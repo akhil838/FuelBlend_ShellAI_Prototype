@@ -23,7 +23,14 @@ const ComponentModal = ({ show, onClose, component, onSave }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(currentComponent);
+        // Normalize types (numbers) and ensure id on create
+        const normalized = {
+            ...currentComponent,
+            id: currentComponent.id || `comp-${Date.now()}`,
+            cost: parseFloat(currentComponent.cost),
+            properties: Array.isArray(currentComponent.properties) ? currentComponent.properties.map(v => parseFloat(v)) : [],
+        };
+        onSave(normalized);
     };
 
     if (!show) {

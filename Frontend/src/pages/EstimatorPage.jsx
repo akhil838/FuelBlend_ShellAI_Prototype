@@ -9,7 +9,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import { EstimatorIcon } from '../components/icons/EstimatorIcon';
 
-const FractionEstimatorPage = ({ managedComponents = [], apiAddress }) => {
+const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetComponents = [] }) => {
     // Defensive: ensure we always work with an array to avoid runtime errors
     const safeComponents = Array.isArray(managedComponents) ? managedComponents : [];
     if (!Array.isArray(managedComponents) && process.env.NODE_ENV !== 'production') {
@@ -59,6 +59,17 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress }) => {
 
         return () => clearInterval(interval);
     }, [jobId, status, apiAddress]);
+
+    // Prefill desired properties from the first target component (default) if available
+    useEffect(() => {
+        const allEmpty = desiredProperties.every(v => v === '' || v === null || v === undefined);
+        const firstTarget = Array.isArray(targetComponents) && targetComponents.length > 0 ? targetComponents[0] : null;
+        if (allEmpty && firstTarget && Array.isArray(firstTarget.properties) && firstTarget.properties.length > 0) {
+            const filled = firstTarget.properties.slice(0, NUM_PROPERTIES).map(v => v === null || v === undefined ? '' : String(v));
+            const padded = filled.length < NUM_PROPERTIES ? filled.concat(Array(NUM_PROPERTIES - filled.length).fill('')) : filled;
+            setDesiredProperties(padded);
+        }
+    }, [targetComponents]);
 
     const handlePropertyChange = (index, value) => {
         const newProps = [...desiredProperties];

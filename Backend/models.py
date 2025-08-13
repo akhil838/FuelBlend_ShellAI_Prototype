@@ -6,15 +6,36 @@ from typing import List, Optional
 class Component(BaseModel):
     id: str
     name: str
+    cost: float
     properties: List[float]
 
 class ComponentCreate(BaseModel):
     id: str
     name: str
+    cost: float
     properties: List[float]
 
 class ComponentUpdate(BaseModel):
     name: Optional[str] = None
+    cost: Optional[float] = None
+    properties: Optional[List[float]] = None
+
+# --- Target Component Models ---
+class TargetComponent(BaseModel):
+    id: str
+    name: str
+    cost: float
+    properties: List[float]
+
+class TargetComponentCreate(BaseModel):
+    id: str
+    name: str
+    cost: float
+    properties: List[float]
+
+class TargetComponentUpdate(BaseModel):
+    name: Optional[str] = None
+    cost: Optional[float] = None
     properties: Optional[List[float]] = None
 
 # --- Prediction Models (No change needed) ---

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import components, predictions, app_data
+from routers import components, predictions, app_data, target_components
 import database
 
 app = FastAPI(
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(components.router)
 app.include_router(predictions.router)
 app.include_router(app_data.router)
+app.include_router(target_components.router)
 
 # --- Startup Event: seed default components once ---
 @app.on_event("startup")
