@@ -33,7 +33,10 @@ const Sidebar = ({ currentPage, setCurrentPage, isExpanded, setExpanded, isAlway
                     <div className="w-16 h-full flex-shrink-0 flex items-center justify-center">
                         <img src="https://uc.hackerearth.com/he-s3-ap-south-1/media/cache/17/6c/176ce30ed77b3ce23985e9b5245cf7ed.png" onError={(e) => { e.currentTarget.src = 'https://placehold.co/32x32/eab308/white?text=FB'; e.currentTarget.onerror = null; }} alt="Logo" className="h-8 w-8" />
                     </div>
-                    <span className={`text-xl font-bold whitespace-nowrap transition-opacity duration-200 ${navTextClasses}`}>FuelBlend AI</span>
+                    <div className="flex flex-col">
+                        <span className={`text-xl font-bold whitespace-nowrap transition-opacity duration-200 ${navTextClasses}`}>FuelBlend AI</span>
+                        <span className={`text-xs text-slate-400 whitespace-nowrap transition-opacity duration-200 ${navTextClasses}`}>team: BroCode</span>
+                    </div>
                 </div>
                 <nav className="flex-grow">
                     <ul className="flex flex-col py-4 space-y-2">
@@ -47,7 +50,7 @@ const Sidebar = ({ currentPage, setCurrentPage, isExpanded, setExpanded, isAlway
                                     <div className="w-16 h-full flex-shrink-0 flex items-center justify-center">
                                         {item.icon}
                                     </div>
-                                    <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>{item.label}</span>
+                                    <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>{item.label}</span>
                                 </a>
                             </li>
                         ))}
@@ -75,7 +78,7 @@ const Sidebar = ({ currentPage, setCurrentPage, isExpanded, setExpanded, isAlway
                                 <div className="w-16 h-full flex-shrink-0 flex items-center justify-center">
                                     <InfoIcon />
                                 </div>
-                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>About</span>
+                                <span className={`font-medium whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>About</span>
                             </a>
                     </div>
                 </div>
