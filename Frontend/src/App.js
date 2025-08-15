@@ -31,21 +31,21 @@ export default function App() {
     const [targetComponents, setTargetComponents] = useState([]);
     const [history, setHistory] = useState([]);
 
-    const [apiAddress, setApiAddress] = useLocalStorage('apiAddress', DEFAULT_API_ADDRESS);
+    // const [apiAddress, setApiAddress] = useLocalStorage('apiAddress', DEFAULT_API_ADDRESS);
     // State persisted in local storage
-    // const envApi = process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim() !== ''
-    //     ? process.env.REACT_APP_API_BASE.trim()
-    //     : null;
-    // const defaultApi = envApi || DEFAULT_API_ADDRESS;
-    // const [apiAddress, setApiAddress] = useLocalStorage('apiAddress', defaultApi);
+    const envApi = process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim() !== ''
+        ? process.env.REACT_APP_API_BASE.trim()
+        : null;
+    const defaultApi = envApi || DEFAULT_API_ADDRESS;
+    const [apiAddress, setApiAddress] = useLocalStorage('apiAddress', defaultApi);
 
-    // // If an env var is provided and the stored value is still the code default, switch to env var once
-    // useEffect(() => {
-    //     if (envApi && apiAddress === DEFAULT_API_ADDRESS && DEFAULT_API_ADDRESS !== envApi) {
-    //         setApiAddress(envApi);
-    //     }
-    //     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // }, []);
+    // If an env var is provided and the stored value is still the code default, switch to env var once
+    useEffect(() => {
+        if (envApi && apiAddress === DEFAULT_API_ADDRESS && DEFAULT_API_ADDRESS !== envApi) {
+            setApiAddress(envApi);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [theme, setTheme] = useLocalStorage('theme', 'system');
     const [isAlwaysOpen, setIsAlwaysOpen] = useLocalStorage('isSidebarAlwaysOpen', false);
 
