@@ -23,7 +23,6 @@ const HistoryPage = ({ history = [], onRefresh }) => {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleRefresh = async () => {
-        if (!onRefresh) return;
         setIsRefreshing(true);
         // The onRefresh function is async, so we can wait for it to finish
         await onRefresh();
@@ -81,11 +80,9 @@ const HistoryPage = ({ history = [], onRefresh }) => {
                                         {/* Left Column: Request */}
                                         <div className="flex-1 min-w-0">
                                             <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Request:</h3>
-                                            <div className="max-h-56 overflow-auto rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70 p-2">
-                                                <pre className="whitespace-pre-wrap break-words break-all m-0 font-mono text-xs text-slate-800 dark:text-slate-200">
-                                                    {JSON.stringify(item.data, null, 2)}
-                                                </pre>
-                                            </div>
+                                            <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-md text-xs overflow-x-auto">
+                                                {JSON.stringify(item.data, null, 2)}
+                                            </pre>
                                         </div>
 
                                         {/* --- FIX: Moved Response column out of the isExpanded check --- */}
@@ -93,11 +90,9 @@ const HistoryPage = ({ history = [], onRefresh }) => {
                                         {item.response && (
                                             <div className="flex-1 min-w-0 mt-4 md:mt-0">
                                                 <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Response:</h3>
-                                                <div className="max-h-56 overflow-auto rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70 p-2">
-                                                    <pre className="whitespace-pre-wrap break-words break-all m-0 font-mono text-xs text-slate-800 dark:text-slate-200">
-                                                        {JSON.stringify(item.response, null, 2)}
-                                                    </pre>
-                                                </div>
+                                                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-md text-xs overflow-x-auto">
+                                                    {JSON.stringify(item.response, null, 2)}
+                                                </pre>
                                             </div>
                                         )}
                                     </div>
