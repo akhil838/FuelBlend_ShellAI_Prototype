@@ -214,8 +214,15 @@ def run_fraction_estimation(self, request_data):
     # We must wrap the request_data to avoid confusion with progress messages.
     target_properties = request_data['target_properties']
     components = request_data['components']
+    target_cost = request_data.get('target_cost')
     n_components = len(components)
     n_trials = request_data['n_trials']
+
+    # Build a name->cost map from DB to ensure we have costs even if not sent in request
+    try:
+        db_components = {c['name']: c.get('cost', 0.0) for c in database.get_all_components()}
+    except Exception:
+        db_components = {}
 
     # Command to execute the worker script.
     # Ensure 'python' and 'predict_worker_script.py' are in your system's PATH
@@ -229,9 +236,25 @@ def run_fraction_estimation(self, request_data):
         for i in range(n_components):
             p.append(x[i] / sum(x))
 
+        # Compute fractions (% for reporting, 0-1 for cost calc)
         for i in range(n_components):
             trial.set_user_attr(f"p_{i}", p[i]*100)
             components[i]['fraction'] = p[i]*100
+
+        # Compute blend cost (weighted sum of component costs)
+        comp_costs = []
+        for i in range(n_components):
+            c = components[i]
+            cost_val = c.get('cost')
+            if cost_val is None:
+                cost_val = db_components.get(c.get('name'), 0.0)
+            try:
+                cost_val = float(cost_val)
+            except Exception:
+                cost_val = 0.0
+            comp_costs.append(cost_val)
+        blend_cost = float(np.dot(p, comp_costs))  # cost per unit volume
+        trial.set_user_attr('blend_cost', blend_cost)
 
         
         payload = json.dumps({"request_data": {'components':components}})
@@ -253,13 +276,23 @@ def run_fraction_estimation(self, request_data):
         # Write the payload to the script's stdin and close it.
         process.stdin.write(payload)
         process.stdin.close()
+        # Determine current best trial by (MAPE, then Cost)
         try:
-            best_value = study.best_value
-            best_params = study.best_trial.user_attrs
-        except:
-            best_value = None
+            completed = [t for t in study.trials if t.values is not None]
+            if completed:
+                best_trial = min(completed, key=lambda t: (t.values[0], t.values[1] if len(t.values) > 1 else float('inf')))
+                best_value_mape = best_trial.values[0]
+                best_value_cost = best_trial.values[1] if len(best_trial.values) > 1 else None
+                best_params = best_trial.user_attrs
+            else:
+                best_value_mape = None
+                best_value_cost = None
+                best_params = None
+        except Exception:
+            best_value_mape = None
+            best_value_cost = None
             best_params = None
-        print(f"Current best value: {best_value}, params: {best_params}")
+        print(f"Current best values: MAPE={best_value_mape}, Cost={best_value_cost}, params: {best_params}")
     
         # Read the script's output line-by-line to get progress updates.
         while True:
@@ -272,7 +305,22 @@ def run_fraction_estimation(self, request_data):
                 message = json.loads(line.strip())
                 
                 if message.get("type") == "progress":
-                    self.update_state(state='PROGRESS', meta={'progress': (((trial.number+(message["value"]/100))/n_trials)*100), 'result': {'mape_score':(best_value/100) if best_value else None, 'estimated_fractions': [{'name':components[idx]['name'],'fraction':best_params[f'p_{idx}'] if best_params else None}  for idx in range(n_components)]}})
+                    progress_payload = {
+                        'mape_score': (best_value_mape/100) if best_value_mape is not None else None,
+                        'blend_cost': best_value_cost,
+                        'estimated_fractions': [
+                            {'name': components[idx]['name'], 'fraction': best_params[f'p_{idx}'] if best_params else None}
+                            for idx in range(n_components)
+                        ]
+                    }
+                    # Include savings percent during progress if possible
+                    if target_cost and best_value_cost is not None and target_cost != 0:
+                        try:
+                            savings_pct = (float(target_cost) - float(best_value_cost)) / float(target_cost) * 100.0
+                            progress_payload['savings_percent'] = savings_pct
+                        except Exception:
+                            pass
+                    self.update_state(state='PROGRESS', meta={'progress': (((trial.number+(message["value"]/100))/n_trials)*100), 'result': progress_payload})
                 elif message.get("type") == "result":
                     final_result = message["data"]
                 elif message.get("type") == "error":
@@ -293,21 +341,35 @@ def run_fraction_estimation(self, request_data):
             raise Exception("Prediction script finished without producing a result.")
         print(target_properties, final_result['blended_properties'])
         print(trial.user_attrs)
-        return 100*mean_absolute_percentage_error(target_properties, final_result['blended_properties'])
-
-    study = optuna.create_study(directions = ['minimize'])
+        mape_pct = 100*mean_absolute_percentage_error(target_properties, final_result['blended_properties'])
+        # Return two objectives: minimize MAPE and minimize blend cost
+        return mape_pct, blend_cost
+    study = optuna.create_study(directions=['minimize', 'minimize'])
     study.optimize(lambda trial: objective(trial, study), n_trials=n_trials)
 
-    final_fractions = study.best_trial.user_attrs
-    final_mape = study.best_value
+    # Choose final trial by lexicographic order (MAPE first, then Cost)
+    completed = [t for t in study.trials if t.values is not None]
+    if not completed:
+        raise Exception("No successful trials in optimization.")
+    best_trial = min(completed, key=lambda t: (t.values[0], t.values[1] if len(t.values) > 1 else float('inf')))
+    final_fractions = best_trial.user_attrs
+    final_mape = best_trial.values[0]
+    final_cost = best_trial.values[1]
     print(final_fractions)
     final_result = {
         "estimated_fractions": [
             {"name": comp['name'], "fraction": final_fractions[f'p_{idx}']}
             for idx, comp in enumerate(request_data['components'])
         ],
-        "mape_score": final_mape/100
+        "mape_score": final_mape/100,
+        "blend_cost": final_cost
     }
+    # Optionally include savings percent if target cost provided
+    try:
+        if target_cost and float(target_cost) != 0:
+            final_result["savings_percent"] = (float(target_cost) - float(final_cost)) / float(target_cost) * 100.0
+    except Exception:
+        pass
     # Your database logging logic
     database.add_history_log("blender", request_data, final_result)
     

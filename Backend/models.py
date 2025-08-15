@@ -43,6 +43,7 @@ class BlendComponent(BaseModel):
     name: str
     fraction: float
     properties: List[float]
+    cost: Optional[float] = None
 
 class BlendManualRequest(BaseModel):
     components: List[BlendComponent]
@@ -51,6 +52,7 @@ class EstimateFractionsRequest(BaseModel):
     target_properties: List[float]
     components: List[BlendComponent]
     n_trials: int
+    target_cost: Optional[float] = None
 
 # --- App Data Models ---
 # FIX: Updated to expect a simple 'id' field.

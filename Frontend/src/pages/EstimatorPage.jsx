@@ -17,6 +17,8 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
         console.warn('EstimatorPage expected managedComponents to be an array, received:', managedComponents);
     }
     const [desiredProperties, setDesiredProperties] = useState(Array(NUM_PROPERTIES).fill(''));
+    const [selectedTargetId, setSelectedTargetId] = useState('');
+    const [targetCost, setTargetCost] = useState('');
     const [selectedComponents, setSelectedComponents] = useState([]);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -68,8 +70,23 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
             const filled = firstTarget.properties.slice(0, NUM_PROPERTIES).map(v => v === null || v === undefined ? '' : String(v));
             const padded = filled.length < NUM_PROPERTIES ? filled.concat(Array(NUM_PROPERTIES - filled.length).fill('')) : filled;
             setDesiredProperties(padded);
+            setSelectedTargetId(firstTarget.id || '');
+            setTargetCost(firstTarget.cost != null ? String(firstTarget.cost) : '');
         }
     }, [targetComponents]);
+
+    // When user selects a target from dropdown, prefill properties and cost
+    const handleSelectTarget = (e) => {
+        const id = e.target.value;
+        setSelectedTargetId(id);
+        const t = (targetComponents || []).find(tc => tc.id === id);
+        if (t) {
+            const filled = (Array.isArray(t.properties) ? t.properties : []).slice(0, NUM_PROPERTIES).map(v => v == null ? '' : String(v));
+            const padded = filled.length < NUM_PROPERTIES ? filled.concat(Array(NUM_PROPERTIES - filled.length).fill('')) : filled;
+            setDesiredProperties(padded);
+            setTargetCost(t.cost != null ? String(t.cost) : '');
+        }
+    };
 
     const handlePropertyChange = (index, value) => {
         const newProps = [...desiredProperties];
@@ -102,9 +119,14 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
 
             const componentsForApi = safeComponents
                 .filter(c => selectedComponents.includes(c.id))
-                .map(c => ({ name: c.name, fraction: 0, properties: c.properties.map(p => parseFloat(p)) }));
+                .map(c => ({ name: c.name, fraction: 0, properties: c.properties.map(p => parseFloat(p)), cost: parseFloat(c.cost) }));
 
-            const payload = { target_properties: desiredProperties.map(p => parseFloat(p)), components: componentsForApi, n_trials: numTrials };
+            const payload = { 
+                target_properties: desiredProperties.map(p => parseFloat(p)), 
+                components: componentsForApi, 
+                n_trials: numTrials,
+                target_cost: targetCost !== '' ? parseFloat(targetCost) : undefined
+            };
 
             setStatus('pending');
             const startRes = await apiClient('/predict/estimate_fractions', apiAddress, { body: payload });
@@ -131,6 +153,25 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Fraction Estimator</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Define target properties and select components to estimate fractions.</p>
                     <form onSubmit={handleSubmit}>
+                        {/* Target selector and cost */}
+                        <div className="mt-6">
+                            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Target</h3>
+                            <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">Select existing target</label>
+                                    <select value={selectedTargetId} onChange={handleSelectTarget} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-yellow-500 focus:border-yellow-500">
+                                        <option value="">-- None --</option>
+                                        {(targetComponents || []).map(tc => (
+                                            <option key={tc.id} value={tc.id}>{tc.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">Target Cost (per unit)</label>
+                                    <input type="number" step="any" value={targetCost} onChange={e => setTargetCost(e.target.value)} placeholder="e.g. 0.56" className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200" />
+                                </div>
+                            </div>
+                        </div>
                         <div className="mt-6">
                             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Desired Blended Properties</h3>
                             <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -175,7 +216,7 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
                                                         onChange={() => handleComponentSelection(comp.id)} 
                                                         className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-yellow-600 focus:ring-yellow-500 bg-slate-100 dark:bg-slate-900"
                                                     />
-                                                    <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">{comp.name}</span>
+                                                    <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">{comp.name} <span className="text-xs text-slate-500 dark:text-slate-400">{comp.cost != null ? `(cost: ${parseFloat(comp.cost).toFixed(2)})` : ''}</span></span>
                                                 </label>
                                             );
                                     })}

@@ -42,9 +42,21 @@ def seed_defaults_if_empty():
     """Seed the database with default components only once (at startup)."""
     if component_collection.estimated_document_count() == 0:
         defaults = [
-            {"_id": "comp-ethanol", "name": "Ethanol", "cost": 0.0, "properties": [0.789, 78.4, 1, 2, 3, 4, 5, 6, 7, 8]},
-            {"_id": "comp-water", "name": "Water", "cost": 0.0, "properties": [1.0, 100.0, 9, 8, 7, 6, 5, 4, 3, 2]},
-            {"_id": "comp-methanol", "name": "Methanol", "cost": 0.0, "properties": [0.792, 64.7, 2, 3, 4, 5, 6, 7, 8, 9]},
+            {"_id": "comp-ethanol", "name": "Ethanol", "cost": 0.75, "properties": [0.832, 79.3, 5, 2, 8, 4, 1, 7, 6, 3]},
+            {"_id": "comp-methanol", "name": "Methanol", "cost": 0.45, "properties": [0.791, 65.4, 7, 1, 9, 4, 3, 6, 5, 2]},
+            {"_id": "comp-n-decane", "name": "n-Decane", "cost": 1.20, "properties": [0.730, 174.1, 8, 4, 5, 2, 6, 7, 9, 3]},
+            {"_id": "comp-iso-octane", "name": "Iso-octane", "cost": 1.50, "properties": [0.692, 99.2, 3, 7, 8, 2, 5, 1, 9, 4]},
+            {"_id": "comp-toluene", "name": "Toluene", "cost": 0.95, "properties": [0.867, 110.6, 4, 5, 9, 7, 2, 8, 6, 1]},
+            {"_id": "comp-methylcyclohexane", "name": "Methylcyclohexane", "cost": 1.80, "properties": [0.770, 101.1, 2, 6, 8, 1, 5, 9, 3, 7]},
+            {"_id": "comp-trimethylbenzene", "name": "Trimethylbenzene", "cost": 2.10, "properties": [0.876, 164.7, 9, 3, 7, 5, 2, 8, 6, 4]},
+            {"_id": "comp-n-dodecane", "name": "n-Dodecane", "cost": 1.35, "properties": [0.749, 216.2, 6, 8, 4, 9, 3, 2, 5, 7]},
+            {"_id": "comp-ethylbenzene", "name": "Ethylbenzene", "cost": 1.10, "properties": [0.867, 136.2, 7, 9, 2, 5, 4, 3, 8, 1]},
+            {"_id": "comp-hefa-spk", "name": "HEFA-SPK (Hydroprocessed Esters and Fatty Acids)", "cost": 1.2, "properties": [0.78, 230.0, 5, 6, 7, 8, 9, 10, 11, 12]},  # $1.2–$1.5/L
+            {"_id": "comp-atj-spk", "name": "ATJ-SPK (Alcohol-to-Jet Synthetic Paraffinic Kerosene)", "cost": 1.6, "properties": [0.80, 240.0, 6, 7, 8, 9, 10, 11, 12, 13]},  # $1.5–$2.0/L
+            {"_id": "comp-sak", "name": "SAK (Synthetic Aromatic Kerosene)", "cost": 2.1, "properties": [0.82, 250.0, 7, 8, 9, 10, 11, 12, 13, 14]},  # $2.0–$2.3/L
+            {"_id": "comp-lignin-hc", "name": "Lignin-derived Hydrocarbons", "cost": 1.8, "properties": [0.85, 260.0, 8, 9, 10, 11, 12, 13, 14, 15]},  # $1.7–$2.0/L
+            {"_id": "comp-cfp-cycloalkanes", "name": "CFP-derived Cycloalkanes", "cost": 1.9, "properties": [0.83, 245.0, 9, 10, 11, 12, 13, 14, 15, 16]},  # $1.8–$2.1/L
+            {"_id": "comp-camelina-oil", "name": "Camelina Oil Biofuel", "cost": 1.4, "properties": [0.79, 235.0, 10, 11, 12, 13, 14, 15, 16, 17]},  # $1.3–$1.6/L
         ]
         try:
             component_collection.insert_many(defaults, ordered=True)
@@ -53,7 +65,15 @@ def seed_defaults_if_empty():
 
     # Seed a default target component if empty
     if target_component_collection.estimated_document_count() == 0:
-        default_target = [{"_id": "target-default", "name": "Default Target", "cost": 0.0, "properties": [0,0,0,0,0,0,0,0,0,0]}]
+        default_target = [
+            # --- Fuels (USD/L approximations as of Aug 2025) ---
+            {"_id": "fuel-jet-a", "name": "Jet A", "cost": 0.56, "properties": [0.804, -47.0, 6, 3, 9, 1, 8, 4, 7, 5]},
+            {"_id": "fuel-jet-a1", "name": "Jet A-1", "cost": 0.547, "properties": [0.802, -47.8, 7, 2, 5, 9, 4, 8, 3, 6]},
+            {"_id": "fuel-jp8", "name": "JP-8", "cost": 0.55, "properties": [0.804, -47.5, 4, 6, 8, 1, 5, 9, 7, 3]},
+            {"_id": "fuel-jp5", "name": "JP-5", "cost": 0.58, "properties": [0.816, -46.0, 5, 7, 2, 9, 8, 1, 3, 4]},
+            {"_id": "fuel-avgas-100ll", "name": "Avgas 100LL", "cost": 1.25, "properties": [0.720, -58.0, 9, 4, 1, 7, 5, 2, 8, 3]},
+            {"_id": "fuel-saf", "name": "Sustainable Aviation Fuel", "cost": 0.90, "properties": [0.780, -48.5, 6, 9, 3, 4, 8, 2, 1, 5]}
+        ]
         try:
             target_component_collection.insert_many(default_target, ordered=True)
         except Exception:
