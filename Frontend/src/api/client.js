@@ -1,10 +1,11 @@
 /**
  * A wrapper for the fetch API to handle requests to the backend.
  * @param {string} endpoint - The API endpoint to call (e.g., '/components').
+ * @param {string} apiAddress - The base URL of the API.
  * @param {object} options - Fetch options (method, body, headers).
  * @returns {Promise<any>} - The JSON response from the API.
  */
-export async function apiClient(endpoint, options = {}) {
+export async function apiClient(endpoint, apiAddress, options = {}) {
     const { body, ...customConfig } = options;
     const headers = { 'Content-Type': 'application/json' };
 
@@ -27,12 +28,16 @@ export async function apiClient(endpoint, options = {}) {
         }
     }
 
-    const apiAddress = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout for all requests
+        config.signal = controller.signal;
+
         const response = await fetch(`${apiAddress}${endpoint}`, config);
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Network response was not ok' }));
+            const errorData = await response.json().catch(() => ({})); // Gracefully handle non-json error responses
             const errorMessage = errorData.detail || `An error occurred: ${response.statusText}`;
             return Promise.reject(new Error(errorMessage));
         }
