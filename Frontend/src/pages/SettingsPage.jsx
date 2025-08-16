@@ -62,11 +62,11 @@ const SettingsPage = ({ theme, setTheme, apiAddress, setApiAddress }) => {
                 <p className="text-slate-600 dark:text-slate-400 mb-8">Configure application settings and API endpoints.</p>
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg space-y-8">
                     <div>
-                        <label htmlFor="api-address" className="block text-lg font-semibold text-slate-800 dark:text-slate-200">Backend API Address</label>
+                        <label htmlFor="api-address" className="block text-lg font-semibold text-slate-800 dark:text-slate-200">Backend API Address - Disabled for Production usage</label>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Set the base URL for the backend API.</p>
                         <div className="flex items-center space-x-2">
                             <div className="flex-shrink-0"><TestStatusIcon status={testStatus.status} /></div>
-                            <input type="password" disabled id="api-address" value={tempApiAddress} onChange={(e) => { setTempApiAddress(e.target.value); setTestStatus({ status: 'idle', message: '' }); }} className="flex-grow p-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200" placeholder={`e.g., ${DEFAULT_API_ADDRESS}`}/>
+                            <input type="password" disabled id="api-address" onChange={(e) => { setTempApiAddress(e.target.value); setTestStatus({ status: 'idle', message: '' }); }} className="flex-grow p-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200" placeholder={`e.g., ${DEFAULT_API_ADDRESS}`}/>
                             <button type="button" onClick={handleTest} className="py-2 px-4 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors disabled:opacity-50" disabled={testStatus.status === 'testing'}>{testStatus.status === 'testing' ? 'Testing...' : 'Test'}</button>
                             <button onClick={handleSave} className="py-2 px-6 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-colors disabled:opacity-50" disabled={tempApiAddress === apiAddress || testStatus.status === 'testing'}>{saved ? 'Saved!' : 'Save'}</button>
                         </div>
