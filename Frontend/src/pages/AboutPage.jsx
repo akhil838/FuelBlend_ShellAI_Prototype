@@ -8,7 +8,7 @@ const AboutPage = () => (
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">About FuelBlend AI</h1>
             <div className="text-slate-600 dark:text-slate-300 space-y-4">
                 <p><strong>FuelBlend AI</strong> is a Prototype built for fuel blending and property estimation as a part of Shell AI Hackathon 2025.</p>
-                <p>Link to our Presentation: <a href="https://www.canva.com/design/DAGwBaByaDo/IMBrFq3IRDPxFdsEOBhzrQ/edit?utm_content=DAGwBaByaDo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton" className="text-blue-500 hover:underline">Presentation Link</a></p>
+                <p>Link to our Presentation: <a href="https://www.canva.com/design/DAGwBaByaDo/IMBrFq3IRDPxFdsEOBhzrQ/edit?utm_content=DAGwBaByaDo&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton" target="_blank" className="text-blue-500 hover:underline">Presentation Link</a></p>
                 <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-200 pt-4 border-t dark:border-slate-700 mt-4">Core Features</h3>
                 <ul className="list-disc list-inside space-y-2">
                     <li><strong>Blender:</strong> Predict the final properties of a fuel blend by combining multiple components with specified fractions. Supports single and batch processing via CSV.</li>
