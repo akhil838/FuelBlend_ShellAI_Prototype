@@ -66,9 +66,9 @@ export default function App() {
             try {
                 // Fetch components and history in parallel
                 const [componentsDataRaw, historyDataRaw, targetComponentsDataRaw] = await Promise.all([
-                    apiClient('/components', apiAddress).catch(() => []),
-                    apiClient('/history', apiAddress).catch(() => []),
-                    apiClient('/target_components', apiAddress).catch(() => [])
+                    apiClient('/components/', apiAddress).catch(() => []),
+                    apiClient('/history/', apiAddress).catch(() => []),
+                    apiClient('/target_components/', apiAddress).catch(() => [])
                 ]);
                 // Normalize components in case backend returns object/different shape
                 const normalizeComponents = (data) => {
@@ -110,7 +110,7 @@ export default function App() {
 
     const fetchHistory = async () => {
         try {
-            const historyData = await apiClient('/history', apiAddress);
+            const historyData = await apiClient('/history/', apiAddress);
             setHistory(historyData);
         } catch (err) {
             // Set an error message if the refresh fails
@@ -123,7 +123,7 @@ export default function App() {
     // --- Component CRUD Handlers ---
     const handleSaveComponent = async (componentToSave) => {
         const isEditing = managedComponents.some(c => c.id === componentToSave.id);
-        const endpoint = isEditing ? `/components/${componentToSave.id}` : '/components';
+        const endpoint = isEditing ? `/components/${componentToSave.id}/` : '/components/';
         const method = isEditing ? 'PUT' : 'POST';
 
         try {
@@ -135,7 +135,7 @@ export default function App() {
                 setManagedComponents(prev => {
                     if (prev.length === 0) {
                         // Trigger a background refresh of components to pick up seeded defaults plus new component
-                        apiClient('/components', apiAddress).then(fresh => {
+                        apiClient('/components/', apiAddress).then(fresh => {
                             if (Array.isArray(fresh) && fresh.length > 0) setManagedComponents(fresh);
                         }).catch(() => {});
                     }
@@ -153,7 +153,7 @@ export default function App() {
 
     const handleSaveTargetComponent = async (componentToSave) => {
         const isEditing = targetComponents.some(c => c.id === componentToSave.id);
-        const endpoint = isEditing ? `/target_components/${componentToSave.id}` : '/target_components';
+        const endpoint = isEditing ? `/target_components/${componentToSave.id}/` : '/target_components/';
         const method = isEditing ? 'PUT' : 'POST';
 
         // Build payload matching backend models
@@ -195,7 +195,7 @@ export default function App() {
     const handleDeleteConfirm = async () => {
         if (!deletingComponent) return;
         try {
-            await apiClient(`/components/${deletingComponent.id}`, apiAddress, { method: 'DELETE' });
+            await apiClient(`/components/${deletingComponent.id}/`, apiAddress, { method: 'DELETE' });
             setManagedComponents(managedComponents.filter(c => c.id !== deletingComponent.id));
         } catch (err) {
             console.error("Failed to delete component:", err);
@@ -208,7 +208,7 @@ export default function App() {
     const handleDeleteTargetComponentConfirm = async () => {
         if (!deletingTargetComponent) return;
         try {
-            await apiClient(`/target_components/${deletingTargetComponent.id}`, apiAddress, { method: 'DELETE' });
+            await apiClient(`/target_components/${deletingTargetComponent.id}/`, apiAddress, { method: 'DELETE' });
             setTargetComponents(targetComponents.filter(c => c.id !== deletingTargetComponent.id));
         } catch (err) {
             console.error("Failed to delete target component:", err);

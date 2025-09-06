@@ -33,6 +33,9 @@ export async function apiClient(endpoint, apiAddress, options = {}) {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout for all requests
         config.signal = controller.signal;
 
+        // Add ngrok header to skip browser warning
+        config.headers['ngrok-skip-browser-warning'] = 'true';
+
         const response = await fetch(`${apiAddress}${endpoint}`, config);
         clearTimeout(timeoutId);
 
