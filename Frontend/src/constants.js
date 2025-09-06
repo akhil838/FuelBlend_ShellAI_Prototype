@@ -1,7 +1,7 @@
 // In a real project, this would be in /src/constants.js
 export const MAX_CHEMICALS = 5;
 export const NUM_PROPERTIES = 10;
-export const DEFAULT_API_ADDRESS = 'https://1a7f0d2ea76e.ngrok-free.app';
+export const DEFAULT_API_ADDRESS = 'http://localhost:8000';
 // Default components moved to backend seeding logic. Frontend no longer defines them.
 
 export const createNewComponent = () => ({
