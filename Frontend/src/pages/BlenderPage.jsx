@@ -139,7 +139,7 @@ const BlenderPage = ({ managedComponents, apiAddress, targetComponents = [] }) =
             const payload = { components: instances.map(inst => ({ name: managedComponents.find(c => c.id === inst.componentId)?.name || 'Custom', fraction: parseFloat(inst.fraction), properties: inst.properties.map(p => parseFloat(p)) })) };
             
             setStatus('pending');
-            const startRes = await apiClient('/predict/blend_manual/', apiAddress, { body: payload });
+            const startRes = await apiClient('/predict/blend_manual', apiAddress, { body: payload });
             setJobId(startRes.job_id);
         } catch (err) {
             setError(err.message);
@@ -153,7 +153,7 @@ const BlenderPage = ({ managedComponents, apiAddress, targetComponents = [] }) =
             formData.append('file', csvFile);
             
             setStatus('pending');
-            const startRes = await apiClient('/predict/blend_batch/', apiAddress, { method: 'POST', body: formData });
+            const startRes = await apiClient('/predict/blend_batch', apiAddress, { method: 'POST', body: formData });
             setJobId(startRes.job_id);
         } catch (err) {
             setError(err.message);

@@ -129,7 +129,7 @@ const FractionEstimatorPage = ({ managedComponents = [], apiAddress, targetCompo
             };
 
             setStatus('pending');
-            const startRes = await apiClient('/predict/estimate_fractions/', apiAddress, { body: payload });
+            const startRes = await apiClient('/predict/estimate_fractions', apiAddress, { body: payload });
             setJobId(startRes.job_id);
         } catch (err) {
             setError(err.message);
